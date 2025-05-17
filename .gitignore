@@ -1,0 +1,33 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+node_modules
+dist
+*.local
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+
+# Executables
+*.exe
+
+# Editor directories and files
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+*.map
