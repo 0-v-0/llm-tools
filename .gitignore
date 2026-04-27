@@ -31,3 +31,4 @@ dist
 *.sw?
 
 *.map
+pnpm-lock.yaml
