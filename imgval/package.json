@@ -1,0 +1,37 @@
+{
+	"name": "imgval",
+	"version": "0.1.0",
+	"description": "TypeScript CLI for LLM-based image valuation",
+	"bin": {
+		"imgval": "./dist/index.js"
+	},
+	"type": "module",
+	"main": "./dist/index.js",
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json && node -e \"const fs=require('fs'),path=require('path');fs.cpSync(path.join('src','standards','builtin'),path.join('dist','standards','builtin'),{recursive:true});fs.cpSync(path.join('src','storage','migrations'),path.join('dist','storage','migrations'),{recursive:true})\"",
+		"dev": "tsx src/index.ts",
+		"start": "node dist/index.js",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@anthropic-ai/sdk": "^0.116.0",
+		"commander": "^15.0.0",
+		"es-toolkit": "^1.50.0",
+		"gray-matter": "^4.0.3",
+		"openai": "^7.4.0",
+		"sharp": "^0.35.3",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@types/node": "^26.2.0",
+		"tsx": "^4.23.12",
+		"typescript": "^7.0.2",
+		"vitest": "^4.1.10"
+	},
+	"engines": {
+		"node": ">=22.0.0"
+	}
+}
