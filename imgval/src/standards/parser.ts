@@ -1,6 +1,6 @@
+import { StandardError } from '@llm-image/shared';
 import matter from 'gray-matter';
 import { z } from 'zod';
-import { StandardError } from '../util/errors.js';
 
 const frontmatterSchema = z.object({
 	name: z.string().min(1),

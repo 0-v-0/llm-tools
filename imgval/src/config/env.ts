@@ -1,5 +1,5 @@
+import { ConfigError } from '@llm-image/shared';
 import { z } from 'zod';
-import { ConfigError } from '../util/errors.js';
 
 const envSchema = z.object({
 	LLM_PROVIDER: z.enum(['openai', 'anthropic']).default('openai'),
@@ -38,14 +38,4 @@ export function loadEnv(): EnvConfig {
 		throw new ConfigError(`环境变量校验失败: ${issues}`);
 	}
 	return parsed.data;
-}
-
-/** Validate that the required API key is set for the configured provider. */
-export function validateProviderConfig(config: EnvConfig): void {
-	if (config.LLM_PROVIDER === 'openai' && !config.OPENAI_API_KEY) {
-		throw new ConfigError('OPENAI_API_KEY is not set (LLM_PROVIDER=openai)');
-	}
-	if (config.LLM_PROVIDER === 'anthropic' && !config.ANTHROPIC_API_KEY) {
-		throw new ConfigError('ANTHROPIC_API_KEY is not set (LLM_PROVIDER=anthropic)');
-	}
 }

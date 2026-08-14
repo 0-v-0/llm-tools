@@ -1,11 +1,9 @@
+import { processImage, createProvider, AppError, ImageError } from '@llm-image/shared';
 import { Command } from 'commander';
 import { pathToFileURL } from 'node:url';
 import { loadEnv } from '../config/env.js';
 import { bootstrap } from '../config/paths.js';
-import { processImage } from '../image/processor.js';
-import { createProvider } from '../llm/factory.js';
 import { resolveStandard } from '../standards/loader.js';
-import { AppError, ImageError } from '../util/errors.js';
 import { valuate } from '../valuation/engine.js';
 import { renderJson } from './output/json.js';
 import { renderValuationCard } from './output/table.js';

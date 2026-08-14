@@ -1,5 +1,5 @@
-export type ImageFormat = 'jpeg' | 'png' | 'webp';
-export type Corruption = 'ok' | 'partial' | 'unreadable';
+import type { ImageFormat, Corruption } from '@llm-image/shared';
+export type { ImageFormat, Corruption };
 export type Confidence = 'low' | 'medium' | 'high';
 
 export interface ValuationRecord {

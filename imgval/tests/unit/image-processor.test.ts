@@ -1,7 +1,6 @@
+import { processImage, ImageError } from '@llm-image/shared';
 import { pathToFileURL } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { processImage } from '../../src/image/processor.js';
-import { ImageError } from '../../src/util/errors.js';
 
 describe('image-processor', () => {
 	it('processes a valid JPEG', async () => {

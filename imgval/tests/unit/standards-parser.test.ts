@@ -1,6 +1,6 @@
+import { StandardError } from '@llm-image/shared';
 import { describe, it, expect } from 'vitest';
 import { parseStandard } from '../../src/standards/parser.js';
-import { StandardError } from '../../src/util/errors.js';
 
 describe('standards-parser', () => {
 	const validMarkdown = `---

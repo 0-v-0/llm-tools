@@ -7,9 +7,9 @@ import type {
 	ToolDef,
 	UsageInfo,
 	ResponseSchema,
-} from '../llm/provider.js';
+} from '@llm-image/shared';
+import { LLMError } from '@llm-image/shared';
 import { SUBMIT_VALUATION_TOOL, VALUATION_RESPONSE_FORMAT } from '../llm/response-parser.js';
-import { LLMError } from '../util/errors.js';
 import { SEARCH_VALUATIONS_TOOL, executeToolCall } from './tools.js';
 
 export interface ToolFlowResult {

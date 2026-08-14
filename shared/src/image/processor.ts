@@ -1,7 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import type { ImageFormat, Corruption } from '../storage/types.js';
+import type { ImageFormat, Corruption } from './types.js';
 import { ImageError } from '../util/errors.js';
 import { hashBuffer } from './hash.js';
 

@@ -1,9 +1,20 @@
 {
 	"name": "image-classifier",
-	"private": true,
 	"version": "0.0.1",
+	"private": true,
 	"description": "A simple image classifier using OpenAI's API",
+	"license": "Apache-2.0",
+	"author": "0-v-0 <kduice@qq.com>",
+	"type": "module",
 	"main": "classifier.js",
+	"dependencies": {
+		"image-size": "^2.0.2",
+		"minimist": "^1.2.8",
+		"openai": "^6.34.0"
+	},
+	"devDependencies": {
+		"@types/node": "^25.6.0"
+	},
 	"eslintConfig": {
 		"rules": {
 			"quotes": [
@@ -18,16 +29,5 @@
 				"always"
 			]
 		}
-	},
-	"author": "0-v-0 <kduice@qq.com>",
-	"license": "Apache-2.0",
-	"devDependencies": {
-		"@types/node": "^25.6.0"
-	},
-	"type": "module",
-	"dependencies": {
-		"image-size": "^2.0.2",
-		"minimist": "^1.2.8",
-		"openai": "^6.34.0"
 	}
 }

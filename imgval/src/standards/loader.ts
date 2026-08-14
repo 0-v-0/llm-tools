@@ -1,7 +1,7 @@
+import { StandardError } from '@llm-image/shared';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, extname, isAbsolute } from 'node:path';
 import { getStandardsDir, getBuiltinStandardsDir } from '../config/paths.js';
-import { StandardError } from '../util/errors.js';
 import { parseStandard, type Standard } from './parser.js';
 
 function looksLikePath(ref: string): boolean {

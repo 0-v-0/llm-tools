@@ -1,3 +1,4 @@
+import { processImage, createProvider, AppError } from '@llm-image/shared';
 import { Command } from 'commander';
 import { limitAsync } from 'es-toolkit';
 import { readdir, stat } from 'node:fs/promises';
@@ -5,10 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadEnv } from '../config/env.js';
 import { bootstrap } from '../config/paths.js';
-import { processImage } from '../image/processor.js';
-import { createProvider } from '../llm/factory.js';
 import { resolveStandard } from '../standards/loader.js';
-import { AppError } from '../util/errors.js';
 import { valuate, type ValuationResult } from '../valuation/engine.js';
 import { renderJsonArray } from './output/json.js';
 import { renderBatchTable } from './output/table.js';

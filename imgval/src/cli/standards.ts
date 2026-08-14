@@ -1,9 +1,9 @@
+import { AppError } from '@llm-image/shared';
 import { Command } from 'commander';
 import { readFileSync } from 'node:fs';
 import { loadEnv } from '../config/env.js';
 import { bootstrap } from '../config/paths.js';
 import { listStandards, resolveStandard } from '../standards/loader.js';
-import { AppError } from '../util/errors.js';
 
 export const standardsCommand = new Command('standards').description('管理估值标准');
 

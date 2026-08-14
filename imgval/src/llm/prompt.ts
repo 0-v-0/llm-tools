@@ -1,6 +1,5 @@
-import type { ProcessedImage } from '../image/processor.js';
+import type { ProcessedImage, LLMMessage } from '@llm-image/shared';
 import type { Standard } from '../standards/parser.js';
-import type { LLMMessage } from './provider.js';
 
 export interface BuiltPrompt {
 	systemPrompt: string;

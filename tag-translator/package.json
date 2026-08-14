@@ -1,15 +1,15 @@
 {
-  "name": "tag-translator",
-  "description": "A simple CLI tool to translate tags using OpenAI completions API.",
-  "private": true,
-  "author": "0-v-0 <kduice@qq.com>",
-  "license": "Apache-2.0",
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "dependencies": {
+	"name": "tag-translator",
+	"version": "0.0.0",
+	"private": true,
+	"description": "A simple CLI tool to translate tags using OpenAI completions API.",
+	"license": "Apache-2.0",
+	"author": "0-v-0 <kduice@qq.com>",
+	"type": "module",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"dependencies": {
 		"openai": "^6.34.0"
-  }
+	}
 }

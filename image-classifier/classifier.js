@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
-import path from 'path';
 import minimist from 'minimist';
+import path from 'path';
 import { extname, ensureUnique, completeChat, parseList, walk, info, error } from './util.js';
 
 function parseArgs() {
@@ -8,12 +8,12 @@ function parseArgs() {
 		boolean: ['dry-run'],
 		string: ['formats', 'depth', 'max-size', 'max-retry', 'timeout'],
 		alias: { 'max-size': 'maxSize', 'max-retry': 'maxRetry' },
-		default: { formats: 'jpg,jpeg,png,gif' }
+		default: { formats: 'jpg,jpeg,png,gif' },
 	});
 
 	return {
 		formats: parseList(argv.formats || 'jpg,jpeg,png,gif'),
-		depth: argv.depth === undefined ? Infinity : (isFinite(+argv.depth) ? +argv.depth : Infinity),
+		depth: argv.depth === undefined ? Infinity : isFinite(+argv.depth) ? +argv.depth : Infinity,
 		maxSize: argv['max-size'] ? Number(argv['max-size']) : 10485760, // 10MB
 		maxRetry: argv['max-retry'] ? Number(argv['max-retry']) : 3,
 		timeout: argv.timeout ? Number(argv.timeout) : 60,
@@ -34,7 +34,9 @@ async function main() {
 	const files = await walk(process.cwd(), opts.formats, opts.depth);
 	info(`找到 ${files.length} 个图片文件`);
 
-	let processed = 0, skipped = 0, failed = 0;
+	let processed = 0,
+		skipped = 0,
+		failed = 0;
 
 	async function processFile(file) {
 		try {
@@ -60,18 +62,21 @@ async function main() {
 				throw new Error(`无法读取文件: ${e.message}`);
 			}
 
-			const messages = [{
-				role: 'user', content: [
-					{ type: 'text', text: prompt },
-					{ type: 'image_url', image_url: { url } }
-				]
-			}];
+			const messages = [
+				{
+					role: 'user',
+					content: [
+						{ type: 'text', text: prompt },
+						{ type: 'image_url', image_url: { url } },
+					],
+				},
+			];
 			for (let i = 0; i < opts.maxRetry; i++) {
 				try {
 					newName = (await completeChat(messages, opts.timeout))
-						.replace(/\.[a-zA-Z0-9]{1,6}$/, '').replace(/[\s]+/g, '_');
-				} catch {
-				}
+						.replace(/\.[a-zA-Z0-9]{1,6}$/, '')
+						.replace(/[\s]+/g, '_');
+				} catch {}
 				if (newName.length > 35) continue; // 过长不合理，重试
 
 				try {
@@ -87,9 +92,10 @@ async function main() {
 				}
 			}
 
-			let target = path.join(dir, newName === base ?
-				await ensureUnique(dir, base, ext) :
-				`${newName}.${ext}`);
+			let target = path.join(
+				dir,
+				newName === base ? await ensureUnique(dir, base, ext) : `${newName}.${ext}`,
+			);
 			if (opts.dryRun) {
 				info(`[DRY-RUN] ${file} -> ${target}`);
 			} else {
@@ -119,4 +125,7 @@ async function main() {
 	info(`耗时：${((Date.now() - start) / 1000).toFixed(1)} s`);
 }
 
-main().catch(e => { error(e.message); process.exitCode = 1; });
+main().catch((e) => {
+	error(e.message);
+	process.exitCode = 1;
+});

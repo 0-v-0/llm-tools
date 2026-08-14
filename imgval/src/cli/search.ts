@@ -1,9 +1,9 @@
+import { AppError } from '@llm-image/shared';
 import { Command } from 'commander';
 import type { SearchParams, ImageFormat } from '../storage/types.js';
 import { loadEnv } from '../config/env.js';
 import { bootstrap } from '../config/paths.js';
 import { search, searchByText } from '../storage/repository.search.js';
-import { AppError } from '../util/errors.js';
 import { renderRecordsJson } from './output/json.js';
 import { renderSearchResults } from './output/table.js';
 

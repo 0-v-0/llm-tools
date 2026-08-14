@@ -1,6 +1,6 @@
+import { ParseError } from '@llm-image/shared';
 import { describe, it, expect } from 'vitest';
 import { parseValuationResponse } from '../../src/llm/response-parser.js';
-import { ParseError } from '../../src/util/errors.js';
 
 describe('response-parser', () => {
 	it('parses clean JSON', () => {

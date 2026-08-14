@@ -1,5 +1,5 @@
+import type { ToolDef } from '@llm-image/shared';
 import { z } from 'zod';
-import type { ToolDef } from '../llm/provider.js';
 import type { SearchParams, ValuationRecord } from '../storage/types.js';
 import { search as searchRepository } from '../storage/repository.search.js';
 
