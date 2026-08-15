@@ -1,0 +1,9 @@
+packages:
+  - "shared"
+  - "image-classifier"
+  - "imgsearch"
+  - "imgval"
+  - "tag-translator"
+
+allowBuilds:
+  esbuild: true

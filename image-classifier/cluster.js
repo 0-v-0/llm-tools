@@ -1,21 +1,30 @@
 import fs from 'fs/promises';
-import path from 'path';
+import { imageSizeFromFile } from 'image-size/fromFile';
 import minimist from 'minimist';
-import { imageSizeFromFile } from 'image-size/fromFile'
-import { extname, ensureUnique, openai, completeChat, parseList, walk, info, error } from './util.js';
+import path from 'path';
+import {
+	extname,
+	ensureUnique,
+	openai,
+	completeChat,
+	parseList,
+	walk,
+	info,
+	error,
+} from './util.js';
 
 export function parseArgs() {
 	const argv = minimist(process.argv.slice(2), {
 		boolean: ['dry-run'],
 		string: ['formats', 'depth', 'max-retry', 'n', 'timeout', 'metric'],
 		alias: { 'max-retry': 'maxRetry', m: 'metric' },
-		default: { formats: '', n: 0, metric: 'name' }
+		default: { formats: '', n: 0, metric: 'name' },
 	});
 
 	return {
 		n: argv.n ? Number(argv.n) : 0,
 		formats: argv.formats ? parseList(argv.formats) : [],
-		depth: argv.depth === undefined ? Infinity : (isFinite(+argv.depth) ? +argv.depth : Infinity),
+		depth: argv.depth === undefined ? Infinity : isFinite(+argv.depth) ? +argv.depth : Infinity,
 		maxRetry: argv['max-retry'] ? Number(argv['max-retry']) : 3,
 		timeout: argv.timeout ? Number(argv.timeout) : 60,
 		dryRun: !!argv['dry-run'],
@@ -25,13 +34,14 @@ export function parseArgs() {
 
 async function getEmbeddings(texts) {
 	const resp = await openai.embeddings.create({ model: 'text-embedding-3-small', input: texts });
-	return resp.data.map(d => d.embedding);
+	return resp.data.map((d) => d.embedding);
 }
 
 function dist2(a, b) {
 	let s = 0;
 	for (let i = 0; i < a.length; i++) {
-		const d = a[i] - b[i]; s += d * d;
+		const d = a[i] - b[i];
+		s += d * d;
 	}
 	return s;
 }
@@ -75,7 +85,9 @@ function kmeansPlusPlus(points, k, maxIter = 1000) {
 		}
 		let r = Math.random() * total;
 		let idx = 0;
-		while (r > 0 && idx < n) { r -= closestDist[idx++]; }
+		while (r > 0 && idx < n) {
+			r -= closestDist[idx++];
+		}
 		centroids.push(points[Math.max(0, idx - 1)].slice());
 	}
 
@@ -84,12 +96,19 @@ function kmeansPlusPlus(points, k, maxIter = 1000) {
 	for (let iter = 0; iter < maxIter; iter++) {
 		let changed = false;
 		for (let i = 0; i < n; i++) {
-			let best = -1, bestd = Infinity;
+			let best = -1,
+				bestd = Infinity;
 			for (let j = 0; j < centroids.length; j++) {
 				const d = dist2(points[i], centroids[j]);
-				if (d < bestd) { bestd = d; best = j; }
+				if (d < bestd) {
+					bestd = d;
+					best = j;
+				}
 			}
-			if (assignments[i] !== best) { assignments[i] = best; changed = true; }
+			if (assignments[i] !== best) {
+				assignments[i] = best;
+				changed = true;
+			}
 		}
 		if (!changed) break;
 
@@ -118,7 +137,9 @@ function kmeansPlusPlus(points, k, maxIter = 1000) {
 function sanitizeName(name) {
 	if (!name) return '';
 	let s = name.replace(/[<>:\"/\\|?*\x00-\x1F]/g, '');
-	return s.trim().replace(/[\s]+/g, '_')
+	return s
+		.trim()
+		.replace(/[\s]+/g, '_')
 		.replace(/[\. ]+$/g, '');
 }
 
@@ -147,25 +168,25 @@ async function main() {
 		return;
 	}
 
-	const names = files.map(f => path.basename(f, '.' + extname(f)));
+	const names = files.map((f) => path.basename(f, '.' + extname(f)));
 	let points = [];
 	if (opts.metric === 'name') {
 		let embeddings;
 		try {
 			embeddings = await getEmbeddings(names);
 		} catch (e) {
-			throw new Error("获取嵌入失败", { cause: e });
+			throw new Error('获取嵌入失败', { cause: e });
 		}
 		points = embeddings;
 	} else if (opts.metric === 'resolution' || opts.metric === 'aspect-ratio') {
 		for (const f of files) {
-			let width = 0, height = 0;
+			let width = 0,
+				height = 0;
 			try {
 				const s = await imageSizeFromFile(f);
 				width = s.width || 0;
 				height = s.height || 0;
-			} catch {
-			}
+			} catch {}
 			if (opts.metric === 'resolution') {
 				points.push([width, height]);
 			} else {
@@ -180,13 +201,19 @@ async function main() {
 	const categories = Array(clusters.length);
 	for (let i = 0; i < clusters.length; i++) {
 		const idxs = clusters[i];
-		const sampleNames = idxs.slice(0, 50).map(j => names[j]);
+		const sampleNames = idxs.slice(0, 50).map((j) => names[j]);
 		let catName = '';
 		if (opts.metric === 'name') {
 			for (let attempt = 0; attempt < 5; attempt++) {
 				const messages = [
-					{ role: 'system', content: '你是一个文件分类助手，负责根据文件名生成一个简洁、有描述性的类别名称。' },
-					{ role: 'user', content: `请为以下文件名生成一个中文目录名，直接输出目录名，不要输出其他内容：\n${sampleNames.join('\n')}` }
+					{
+						role: 'system',
+						content: '你是一个文件分类助手，负责根据文件名生成一个简洁、有描述性的类别名称。',
+					},
+					{
+						role: 'user',
+						content: `请为以下文件名生成一个中文目录名，直接输出目录名，不要输出其他内容：\n${sampleNames.join('\n')}`,
+					},
 				];
 				try {
 					const resp = await completeChat(messages, opts.timeout, 100);
@@ -199,25 +226,36 @@ async function main() {
 			}
 			catName ||= `category_${i + 1}`;
 		} else if (opts.metric === 'resolution') {
-			let sumW = 0, sumH = 0, cnt = 0;
+			let sumW = 0,
+				sumH = 0,
+				cnt = 0;
 			for (const idx of idxs) {
 				const p = points[idx] || [0, 0];
-				sumW += p[0]; sumH += p[1]; cnt += 1;
+				sumW += p[0];
+				sumH += p[1];
+				cnt += 1;
 			}
-			catName = cnt === 0 ? `category_${i + 1}` : sanitizeName(`${Math.round(sumW / cnt)}x${Math.round(sumH / cnt)}`);
+			catName =
+				cnt === 0
+					? `category_${i + 1}`
+					: sanitizeName(`${Math.round(sumW / cnt)}x${Math.round(sumH / cnt)}`);
 		} else if (opts.metric === 'aspect-ratio') {
-			let sumRatio = 0, cnt = 0;
+			let sumRatio = 0,
+				cnt = 0;
 			for (const idx of idxs) {
 				const p = points[idx] || [0];
-				sumRatio += p[0] || 0; cnt += 1;
+				sumRatio += p[0] || 0;
+				cnt += 1;
 			}
-			catName = cnt === 0 ? `category_${i + 1}` : formatAspectRatio(sumRatio / cnt) || `category_${i + 1}`;
+			catName =
+				cnt === 0 ? `category_${i + 1}` : formatAspectRatio(sumRatio / cnt) || `category_${i + 1}`;
 		}
 		categories[i] = catName;
 		info(`类别 ${i + 1}: ${catName} (${idxs.length})`);
 	}
 
-	let moved = 0, failed = 0;
+	let moved = 0,
+		failed = 0;
 	for (let i = 0; i < clusters.length; i++) {
 		const dirName = categories[i];
 		const targetDir = path.join(process.cwd(), dirName);
@@ -245,4 +283,7 @@ async function main() {
 	info(`耗时：${((Date.now() - start) / 1000).toFixed(1)} s`);
 }
 
-main().catch(e => { error(e.message); process.exitCode = 1; });
+main().catch((e) => {
+	error(e.message);
+	process.exitCode = 1;
+});
