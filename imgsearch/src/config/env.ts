@@ -27,26 +27,6 @@ const envSchema = z.object({
 
 	// imgsearch
 	IMGSEARCH_DB_DIR: z.string().optional(),
-
-	// Algorithm parameters
-	IMGSEARCH_ALPHA: z.coerce.number().min(0).max(1).default(0.5),
-	IMGSEARCH_LAMBDA: z.coerce.number().positive().default(8),
-	IMGSEARCH_BEAM_SIZE: z.coerce.number().int().positive().default(500),
-	IMGSEARCH_TOPK_QUESTIONS: z.coerce.number().int().positive().default(50),
-	IMGSEARCH_CANDIDATE_QUESTIONS: z.coerce.number().int().positive().default(5),
-	IMGSEARCH_IG_THRESHOLD: z.coerce.number().positive().default(0.05),
-	IMGSEARCH_MAX_ROUNDS: z.coerce.number().int().positive().default(8),
-	IMGSEARCH_MIN_ROUNDS: z.coerce.number().int().positive().default(2),
-	IMGSEARCH_SHOW_THUMBNAILS: z
-		.union([z.string(), z.boolean()])
-		.transform((v) => (typeof v === 'boolean' ? v : v === 'true'))
-		.default(false),
-
-	// Import
-	IMGSEARCH_MAX_IMAGE_DIMENSION: z.coerce.number().int().positive().default(512),
-	IMGSEARCH_IMPORT_CONCURRENCY: z.coerce.number().int().positive().default(4),
-	IMGSEARCH_EMBED_TEXT_BATCH: z.coerce.number().int().positive().default(64),
-	IMGSEARCH_EMBED_IMAGE_BATCH: z.coerce.number().int().positive().default(16),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

@@ -16,13 +16,13 @@ function loadFromFile(filePath: string): Standard {
 	return parseStandard(content, 'filesystem', filePath);
 }
 
-function findByName(name: string): Standard | null {
+function findByName(name: string, standardsDir?: string): Standard | null {
 	// 1. Try filesystem standards dir (user overrides)
-	const standardsDir = getStandardsDir();
-	if (existsSync(standardsDir)) {
-		for (const file of readdirSync(standardsDir)) {
+	const fsDir = getStandardsDir(standardsDir);
+	if (existsSync(fsDir)) {
+		for (const file of readdirSync(fsDir)) {
 			if (!file.endsWith('.md')) continue;
-			const fullPath = join(standardsDir, file);
+			const fullPath = join(fsDir, file);
 			const content = readFileSync(fullPath, 'utf-8');
 			try {
 				const std = parseStandard(content, 'filesystem', fullPath);
@@ -52,10 +52,10 @@ function findByName(name: string): Standard | null {
 	return null;
 }
 
-export async function resolveStandard(ref?: string): Promise<Standard> {
+export async function resolveStandard(ref?: string, standardsDir?: string): Promise<Standard> {
 	if (!ref) {
 		// default: look for 'default-photo'
-		const found = findByName('default-photo');
+		const found = findByName('default-photo', standardsDir);
 		if (!found) {
 			throw new StandardError('默认标准 default-photo 未找到');
 		}
@@ -66,14 +66,14 @@ export async function resolveStandard(ref?: string): Promise<Standard> {
 		return loadFromFile(ref);
 	}
 
-	const found = findByName(ref);
+	const found = findByName(ref, standardsDir);
 	if (!found) {
 		throw new StandardError(`标准未找到: ${ref}`);
 	}
 	return found;
 }
 
-export function listStandards(): {
+export function listStandards(standardsDir?: string): {
 	name: string;
 	description: string;
 	source: string;
@@ -83,11 +83,11 @@ export function listStandards(): {
 	const seen = new Set<string>();
 
 	// Filesystem first
-	const standardsDir = getStandardsDir();
-	if (existsSync(standardsDir)) {
-		for (const file of readdirSync(standardsDir)) {
+	const fsDir = getStandardsDir(standardsDir);
+	if (existsSync(fsDir)) {
+		for (const file of readdirSync(fsDir)) {
 			if (!file.endsWith('.md')) continue;
-			const fullPath = join(standardsDir, file);
+			const fullPath = join(fsDir, file);
 			const content = readFileSync(fullPath, 'utf-8');
 			try {
 				const std = parseStandard(content, 'filesystem', fullPath);

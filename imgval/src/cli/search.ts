@@ -6,11 +6,12 @@ import { bootstrap } from '../config/paths.js';
 import { search, searchByText } from '../storage/repository.search.js';
 import { renderRecordsJson } from './output/json.js';
 import { renderSearchResults } from './output/table.js';
+import { FORMAT_FLAGS, FORMAT_DESCRIPTION, isJsonFormat } from './output/format.js';
 
 interface SearchOptions {
 	filter?: string[];
 	limit?: string;
-	json?: boolean;
+	format?: string;
 }
 
 function parseQuery(query: string): { params: SearchParams; freeText: string } {
@@ -95,11 +96,11 @@ export const searchCommand = new Command('search')
 		[] as string[],
 	)
 	.option('--limit <n>', '结果数量限制', '20')
-	.option('--json', '输出 JSON 格式')
+	.option(FORMAT_FLAGS, FORMAT_DESCRIPTION, 'text')
 	.action((query: string | undefined, opts: SearchOptions) => {
 		try {
 			const env = loadEnv();
-			bootstrap(env.IMGVAL_DB_DIR, env.IMGVAL_STANDARDS_DIR);
+			bootstrap(env.IMGVAL_DB_DIR);
 
 			const limit = Math.min(parseInt(opts.limit ?? '20', 10), 50);
 			const { params: queryParams, freeText } = parseQuery(query ?? '');
@@ -131,7 +132,7 @@ export const searchCommand = new Command('search')
 				records = search({ limit });
 			}
 
-			if (opts.json) {
+			if (isJsonFormat(opts.format)) {
 				console.log(renderRecordsJson(records));
 			} else {
 				console.log(renderSearchResults(records));

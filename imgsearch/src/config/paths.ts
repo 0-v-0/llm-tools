@@ -11,6 +11,11 @@ export function getDbPath(envDbDir?: string): string {
 	return join(dir, 'imgsearch.db');
 }
 
+export function getConfigPath(envDbDir?: string): string {
+	const dir = envDbDir ?? getHomeDir();
+	return join(dir, 'config.toml');
+}
+
 export function bootstrap(envDbDir?: string): void {
 	const dbDir = envDbDir ?? getHomeDir();
 	if (!existsSync(dbDir)) {

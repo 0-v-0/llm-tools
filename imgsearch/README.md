@@ -78,47 +78,51 @@ JINA_MODEL=jina-clip-v2
 # Qdrant
 QDRANT_URL=http://localhost:6333
 QDRANT_COLLECTION=images
-
-# 算法参数
-IMGSEARCH_ALPHA=0.5           # 文本/视觉 blend 权重
-IMGSEARCH_LAMBDA=8            # 似然核锐度
-IMGSEARCH_BEAM_SIZE=500       # beam 候选数
-IMGSEARCH_IG_THRESHOLD=0.05   # 信息增益阈值 (nats)
-IMGSEARCH_MAX_ROUNDS=8        # 最大提问轮数
-IMGSEARCH_MIN_ROUNDS=2        # 最小提问轮数
 ```
 
 ### 环境变量
 
-| 变量                            | 默认值                       | 说明                                   |
-| ------------------------------- | ---------------------------- | -------------------------------------- |
-| `LLM_PROVIDER`                  | `openai`                     | LLM 提供商：`openai` 或 `anthropic`    |
-| `OPENAI_API_KEY`                | —                            | OpenAI API 密钥                        |
-| `OPENAI_MODEL`                  | `gpt-4o`                     | OpenAI 模型                            |
-| `OPENAI_VISION_DETAIL`          | `low`                        | 图片视觉精度：`low`/`high`/`auto`      |
-| `ANTHROPIC_API_KEY`             | —                            | Anthropic API 密钥                     |
-| `ANTHROPIC_MODEL`               | `claude-sonnet-4-5-20250929` | Anthropic 模型                         |
-| `JINA_API_KEY`                  | —                            | Jina AI API 密钥                       |
-| `JINA_MODEL`                    | `jina-clip-v2`               | embedding 模型                         |
-| `JINA_API_BASE`                 | `https://api.jina.ai/v1`     | Jina API 地址                          |
-| `JINA_DIMENSIONS`               | `1024`                       | 向量维度                               |
-| `QDRANT_URL`                    | `http://localhost:6333`      | Qdrant 地址                            |
-| `QDRANT_COLLECTION`             | `images`                     | Qdrant collection 名                   |
-| `QDRANT_API_KEY`                | —                            | Qdrant API 密钥（远程部署时使用）      |
-| `IMGSEARCH_DB_DIR`              | `~/.imgsearch`               | SQLite 数据库目录                      |
-| `IMGSEARCH_ALPHA`               | `0.5`                        | 文本/视觉相似度 blend 权重 (0~1)       |
-| `IMGSEARCH_LAMBDA`              | `8`                          | 似然核锐度，越大越尖锐                 |
-| `IMGSEARCH_BEAM_SIZE`           | `500`                        | beam 候选数量                          |
-| `IMGSEARCH_TOPK_QUESTIONS`      | `50`                         | 问题生成时取 top-N 候选                |
-| `IMGSEARCH_CANDIDATE_QUESTIONS` | `5`                          | 每轮生成候选问题数上限                 |
-| `IMGSEARCH_IG_THRESHOLD`        | `0.05`                       | 信息增益终止阈值 (nats)                |
-| `IMGSEARCH_MAX_ROUNDS`          | `8`                          | 最大提问轮数                           |
-| `IMGSEARCH_MIN_ROUNDS`          | `2`                          | 最小提问轮数（在此之前不允许 IG 终止） |
-| `IMGSEARCH_SHOW_THUMBNAILS`     | `false`                      | 是否在提问时给 LLM 看候选缩略图        |
-| `IMGSEARCH_MAX_IMAGE_DIMENSION` | `512`                        | 导入时图片最大边长 (px)                |
-| `IMGSEARCH_IMPORT_CONCURRENCY`  | `4`                          | 导入并发数                             |
-| `IMGSEARCH_EMBED_TEXT_BATCH`    | `64`                         | 文本 embedding 批大小                  |
-| `IMGSEARCH_EMBED_IMAGE_BATCH`   | `16`                         | 图片 embedding 批大小                  |
+仅 LLM 提供商、向量库与数据库目录通过环境变量配置：
+
+| 变量                | 默认值                       | 说明                              |
+| ------------------- | ---------------------------- | --------------------------------- |
+| `LLM_PROVIDER`      | `openai`                     | LLM 提供商：`openai` 或 `anthropic` |
+| `OPENAI_API_KEY`    | —                            | OpenAI API 密钥                   |
+| `OPENAI_MODEL`      | `gpt-4o`                     | OpenAI 模型                       |
+| `OPENAI_VISION_DETAIL` | `low`                     | 图片视觉精度：`low`/`high`/`auto` |
+| `ANTHROPIC_API_KEY` | —                            | Anthropic API 密钥                |
+| `ANTHROPIC_MODEL`   | `claude-sonnet-4-5-20250929` | Anthropic 模型                    |
+| `JINA_API_KEY`      | —                            | Jina AI API 密钥                  |
+| `JINA_MODEL`        | `jina-clip-v2`               | embedding 模型                    |
+| `JINA_API_BASE`     | `https://api.jina.ai/v1`     | Jina API 地址                     |
+| `JINA_DIMENSIONS`   | `1024`                       | 向量维度                          |
+| `QDRANT_URL`        | `http://localhost:6333`      | Qdrant 地址                       |
+| `QDRANT_COLLECTION` | `images`                     | Qdrant collection 名              |
+| `QDRANT_API_KEY`    | —                            | Qdrant API 密钥（远程部署时使用） |
+| `IMGSEARCH_DB_DIR`  | `~/.imgsearch`               | SQLite 数据库目录（配置文件也存放于此） |
+
+### 配置文件
+
+算法与导入调优参数统一放在配置文件 `~/.imgsearch/config.toml`（若设置了 `IMGSEARCH_DB_DIR`，则为 `<IMGSEARCH_DB_DIR>/config.toml`）。文件不存在时全部使用默认值；配置为唯一来源，无同名环境变量覆盖。
+
+```toml
+# ~/.imgsearch/config.toml
+alpha = 0.5              # 文本/视觉相似度 blend 权重 (0~1)
+lambda = 8               # 似然核锐度，越大越尖锐
+beamSize = 500           # beam 候选数量
+topKQuestions = 50       # 问题生成时取 top-N 候选
+candidateQuestions = 5   # 每轮生成候选问题数上限
+igThreshold = 0.05       # 信息增益终止阈值 (nats)
+maxRounds = 8            # 最大提问轮数
+minRounds = 2            # 最小提问轮数（在此之前不允许 IG 终止）
+showThumbnails = false   # 是否在提问时给 LLM 看候选缩略图
+
+# 导入
+maxImageDimension = 512  # 导入时图片最大边长 (px)
+importConcurrency = 4    # 默认导入并发数（--concurrency 可临时覆盖）
+embedTextBatch = 64      # 文本 embedding 批大小
+embedImageBatch = 16     # 图片 embedding 批大小
+```
 
 ## 使用
 
@@ -211,6 +215,7 @@ imgsearch/src/
 │   ├── search.ts           # 交互式搜索命令
 │   └── status.ts           # 状态查询命令
 ├── config/
+│   ├── config.ts           # ~/.imgsearch/config.toml（zod + smol-toml 校验）
 │   ├── env.ts              # zod 环境变量校验
 │   └── paths.ts            # 数据目录路径
 ├── embedding/
@@ -249,7 +254,8 @@ imgsearch/src/
 - `@qdrant/js-client-rest` — Qdrant 客户端
 - `commander` — CLI 框架
 - `es-toolkit` — 工具函数（并发控制等）
-- `zod` — 环境变量校验
+- `smol-toml` — TOML 配置文件解析
+- `zod` — 环境变量与配置校验
 
 ## 开发
 

@@ -1,5 +1,6 @@
 import type { LLMProvider, ProcessedImage, ToolDef } from '@llm-image/shared';
 import type { EnvConfig } from '../config/env.js';
+import type { AppConfig } from '../config/config.js';
 import type { Standard } from '../standards/parser.js';
 import type { Confidence, ImageFormat } from '../storage/types.js';
 import { buildPrompt } from '../llm/prompt.js';
@@ -32,6 +33,7 @@ export interface ValuationRequest {
 	standard: Standard;
 	provider: LLMProvider;
 	env: EnvConfig;
+	config: AppConfig;
 	enableTools: boolean;
 }
 
@@ -70,7 +72,7 @@ export interface ValuationResult {
 }
 
 export async function valuate(req: ValuationRequest): Promise<ValuationResult> {
-	const { image, standard, provider, env, enableTools } = req;
+	const { image, standard, provider, env, config, enableTools } = req;
 
 	const imageHash = image.hash;
 
@@ -101,7 +103,7 @@ export async function valuate(req: ValuationRequest): Promise<ValuationResult> {
 			userMessages,
 			enableTools,
 			enableSearchTools,
-			maxRounds: env.IMGVAL_MAX_TOOL_ROUNDS,
+			maxRounds: config.maxToolRounds,
 			responseSchema: VALUATION_RESPONSE_FORMAT,
 			imageUrl: req.url,
 			standardName: standard.frontmatter.name,
@@ -115,21 +117,21 @@ export async function valuate(req: ValuationRequest): Promise<ValuationResult> {
 			image,
 			imageHash,
 			standard,
-			env,
+			config,
 			sizeResult,
 			parsed,
 			llmModel: `${env.LLM_PROVIDER}/${provider.model}`,
 			flowResult,
 		});
 	} catch (e) {
-		// 记录失败的完整请求（仅当 IMGVAL_FAIL_LOG 配置时）
-		if (env.IMGVAL_FAIL_LOG) {
+		// 记录失败的完整请求（仅当 failLogDir 配置时）
+		if (config.failLogDir) {
 			const tools: ToolDef[] = [];
 			if (enableTools) tools.push(GET_EXIF_TOOL);
 			if (enableTools && enableSearchTools) tools.push(SEARCH_VALUATIONS_TOOL);
 			tools.push(SUBMIT_VALUATION_TOOL);
 
-			logFailedRequest(env.IMGVAL_FAIL_LOG, {
+			logFailedRequest(config.failLogDir, {
 				url: req.url,
 				image: {
 					format: image.format,
@@ -160,13 +162,13 @@ function finalizeValuation(args: {
 	image: ProcessedImage;
 	imageHash: string;
 	standard: Standard;
-	env: EnvConfig;
+	config: AppConfig;
 	sizeResult: ReturnType<typeof computeResolutionCorrection>;
 	parsed: ReturnType<typeof parseValuationResponse>;
 	llmModel: string;
 	flowResult: ToolFlowResult;
 }): ValuationResult {
-	const { image, standard, env, sizeResult, parsed, llmModel, imageHash, req, flowResult } = args;
+	const { image, standard, config, sizeResult, parsed, llmModel, imageHash, req, flowResult } = args;
 	const rawMin = parsed.minValue;
 	const rawMax = parsed.maxValue;
 	const clampedMin = Math.max(0, Math.round(rawMin * sizeResult.multiplier * 100) / 100);
@@ -237,7 +239,7 @@ function finalizeValuation(args: {
 		toolFallback: flowResult.toolFallback,
 		inputTokens: flowResult.usage?.inputTokens ?? null,
 		outputTokens: flowResult.usage?.outputTokens ?? null,
-		rawLlmText: env.IMGVAL_STORE_RAW ? flowResult.text : null,
+		rawLlmText: config.storeRaw ? flowResult.text : null,
 	});
 
 	return result;

@@ -19,7 +19,7 @@ cp .env.example .env
 node imgval/dist/index.js ./path/to/image.jpg
 
 # JSON 输出
-node imgval/dist/index.js ./path/to/image.jpg --json
+node imgval/dist/index.js ./path/to/image.jpg --format json
 
 # 批量估值（自动识别目录）
 node imgval/dist/index.js ./images/ --concurrency 3
@@ -48,6 +48,8 @@ node imgval/dist/index.js standards list
 
 ## 环境变量
 
+仅 LLM 提供商与数据库目录通过环境变量配置：
+
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `LLM_PROVIDER` | `openai` | LLM 提供商 (`openai` 或 `anthropic`) |
@@ -57,13 +59,21 @@ node imgval/dist/index.js standards list
 | `OPENAI_VISION_DETAIL` | `high` | Vision 详情级别 |
 | `ANTHROPIC_API_KEY` | — | Anthropic API 密钥 |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-5-20250929` | 模型名称 |
-| `LLM_ENABLE_TOOLS` | `true` | 启用工具调用 |
-| `IMGVAL_DB_DIR` | `~/.imgval` | 数据库目录 |
-| `IMGVAL_STANDARDS_DIR` | `~/.imgval/standards` | 估值标准目录 |
-| `IMGVAL_MAX_IMAGE_DIMENSION` | `1568` | 送入 LLM 前最长边像素限制 |
-| `IMGVAL_MAX_TOOL_ROUNDS` | `4` | 工具调用循环上限 |
-| `IMGVAL_STORE_RAW` | `true` | 是否存储 LLM 原始回复文本 |
-| `IMGVAL_FAIL_LOG` | — | 失败日志目录；若设置，估值失败时写入完整请求 JSON 文件 |
+| `IMGVAL_DB_DIR` | `~/.imgval` | 数据库目录（配置文件也存放于此） |
+
+## 配置文件
+
+行为调优参数统一放在配置文件 `~/.imgval/config.toml`（若设置了 `IMGVAL_DB_DIR`，则为 `<IMGVAL_DB_DIR>/config.toml`）。文件不存在时全部使用默认值；配置为唯一来源，无同名环境变量覆盖。
+
+```toml
+# ~/.imgval/config.toml
+standardsDir = "~/.imgval/standards"   # 估值标准目录
+storeRaw = true                         # 是否存储 LLM 原始回复文本
+maxImageDimension = 1568                # 送入 LLM 前最长边像素限制
+maxToolRounds = 4                       # 工具调用循环上限
+enableTools = true                      # 启用工具调用（仍可用 --no-tools 临时禁用）
+failLogDir = ""                         # 失败日志目录；为空或未设置则不记录失败请求
+```
 
 ## CLI 命令
 
@@ -72,8 +82,8 @@ node imgval/dist/index.js standards list
 自动识别：传入文件路径则单张估值，传入目录则批量处理。
 
 ```
-imgval <path> [--standard <name|path>] [--json] [--no-tools] [--verbose]
-imgval <dir>  [--standard <name|path>] [--concurrency N] [--include <glob>] [--recursive] [--json] [--progress] [--mode <full|skip|sync>] [--no-tools] [--verbose]
+imgval <path> [--standard <name|path>] [--format <text|json>] [--no-tools] [--verbose]
+imgval <dir>  [--standard <name|path>] [--concurrency N] [--include <glob>] [--recursive] [--format <text|json>] [--progress] [--mode <full|skip|sync>] [--no-tools] [--verbose]
 ```
 
 目录模式下可选：
@@ -84,7 +94,7 @@ imgval <dir>  [--standard <name|path>] [--concurrency N] [--include <glob>] [--r
 ### `imgval search <query>` — 搜索历史
 
 ```
-imgval search [query] [--filter key=value...] [--limit N] [--json]
+imgval search [query] [--filter key=value...] [--limit N] [--format <text|json>]
 ```
 
 支持前缀查询: `min:100 max:500 standard:photo format:png from:2026-01-01`
@@ -92,7 +102,7 @@ imgval search [query] [--filter key=value...] [--limit N] [--json]
 ### `imgval move-low <threshold> <target-dir>` — 移动低价值图片
 
 ```
-imgval move-low <threshold> <target-dir> [--limit N] [--path <glob>...] [--dry-run] [--json]
+imgval move-low <threshold> <target-dir> [--limit N] [--path <glob>...] [--dry-run] [--format <text|json>]
 ```
 
 将数据库中最高价值 (`max_value`) 低于阈值的图片文件移动到目标目录。阈值支持两种格式：
@@ -117,7 +127,7 @@ imgval move-low 500 ./low-value/ --path '**/a/*.jpg' --path '**/b/*.jpg'
 
 与 SKILL.md 格式一致：YAML frontmatter + Markdown body。参见 `default-photo.md`。
 
-自定义标准放入 `~/.imgval/standards/*.md` 即可。
+自定义标准放入标准目录（默认 `~/.imgval/standards/*.md`，可通过配置 `standardsDir` 修改）即可。
 
 ## 开发
 

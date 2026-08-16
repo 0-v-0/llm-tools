@@ -2,6 +2,7 @@ import { AppError } from '@llm-image/shared';
 import { Command } from 'commander';
 import { readFileSync } from 'node:fs';
 import { loadEnv } from '../config/env.js';
+import { loadConfig } from '../config/config.js';
 import { bootstrap } from '../config/paths.js';
 import { listStandards, resolveStandard } from '../standards/loader.js';
 
@@ -12,10 +13,11 @@ standardsCommand
 	.description('列出所有可用标准')
 	.action(() => {
 		try {
-			const env = loadEnv();
-			bootstrap(env.IMGVAL_DB_DIR, env.IMGVAL_STANDARDS_DIR);
+			loadEnv();
+			const config = loadConfig();
+			bootstrap();
 
-			const standards = listStandards();
+			const standards = listStandards(config.standardsDir);
 			if (standards.length === 0) {
 				console.log('未找到任何估值标准');
 				return;
@@ -45,10 +47,11 @@ standardsCommand
 	.description('显示标准完整内容')
 	.action(async (name: string) => {
 		try {
-			const env = loadEnv();
-			bootstrap(env.IMGVAL_DB_DIR, env.IMGVAL_STANDARDS_DIR);
+			loadEnv();
+			const config = loadConfig();
+			bootstrap();
 
-			const standard = await resolveStandard(name);
+			const standard = await resolveStandard(name, config.standardsDir);
 			if (standard.filePath) {
 				console.log(readFileSync(standard.filePath, 'utf-8'));
 			} else {
