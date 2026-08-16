@@ -30,8 +30,14 @@ node imgval/dist/index.js ./images/ --recursive --concurrency 4
 # 批量估值并显示进度条
 node imgval/dist/index.js ./images/ --progress
 
-# 跳过已估值的图片（指纹+标准同时匹配）
-node imgval/dist/index.js ./images/ --skip-valued
+# 跳过已估值（默认）：指纹+标准同时匹配时跳过
+node imgval/dist/index.js ./images/ --mode skip
+
+# 跳过已估值并同步数据库中的 url（文件移动后可修复记录）
+node imgval/dist/index.js ./images/ --mode sync
+
+# 全量重新估值
+node imgval/dist/index.js ./images/ --mode full
 
 # 搜索历史估值
 node imgval/dist/index.js search min:100 max:500
@@ -67,13 +73,13 @@ node imgval/dist/index.js standards list
 
 ```
 imgval <path> [--standard <name|path>] [--json] [--no-tools] [--verbose]
-imgval <dir>  [--standard <name|path>] [--concurrency N] [--include <glob>] [--recursive] [--json] [--progress] [--skip-valued] [--no-tools] [--verbose]
+imgval <dir>  [--standard <name|path>] [--concurrency N] [--include <glob>] [--recursive] [--json] [--progress] [--mode <full|skip|sync>] [--no-tools] [--verbose]
 ```
 
 目录模式下可选：
 
 - `--progress`：显示实时进度条
-- `--skip-valued`：跳过已估值的图片（图片指纹 `image_hash` 与标准名称 `standard_name` 同时匹配数据库记录）
+- `--mode <full|skip|sync>`：估值模式（默认 `skip`）。`full` 全量重新估值；`skip` 跳过已估值的图片（图片指纹 `image_hash` 与标准名称 `standard_name` 同时匹配数据库记录）；`sync` 与 `skip` 相同，但会额外把匹配记录的 `url` 更新为当前路径（图片移动/重命名后可用于同步数据库）
 
 ### `imgval search <query>` — 搜索历史
 

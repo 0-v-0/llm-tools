@@ -9,7 +9,7 @@ import { bootstrap } from '../config/paths.js';
 import { resolveStandard } from '../standards/loader.js';
 import { toFileUrl } from '../util/url.js';
 import { valuate, type ValuationResult } from '../valuation/engine.js';
-import { existsByHashAndStandard } from '../storage/repository.valuation.js';
+import { existsByHashAndStandard, updateUrlByHashAndStandard } from '../storage/repository.valuation.js';
 import { renderJson, renderJsonArray } from './output/json.js';
 import { renderValuationCard, renderBatchTable } from './output/table.js';
 import { createProgressBar } from './output/progress.js';
@@ -57,7 +57,7 @@ export const valueCommand = new Command('value')
 	.option('--recursive', '递归子目录（仅目录模式）')
 	.option('--json', '输出 JSON 格式')
 	.option('--progress', '显示进度条（仅目录模式）')
-	.option('--skip-valued', '跳过已估值图片（图片指纹+标准名称同时匹配）')
+	.option('--mode <full|skip|sync>', '估值模式：full=全量估值，skip=跳过已估值，sync=跳过已估值并同步数据库中的url', 'skip')
 	.option('--no-tools', '禁用工具调用')
 	.option('--verbose', '输出调试信息')
 	.action(
@@ -70,7 +70,7 @@ export const valueCommand = new Command('value')
 				recursive?: boolean;
 				json?: boolean;
 				progress?: boolean;
-				skipValued?: boolean;
+				mode?: 'full' | 'skip' | 'sync';
 				tools?: boolean;
 				verbose?: boolean;
 			},
@@ -103,12 +103,19 @@ export const valueCommand = new Command('value')
 							const encodedUrl = pathToFileURL(imagePath).href;
 							const image = await processImage(encodedUrl, env.IMGVAL_MAX_IMAGE_DIMENSION);
 
-							if (
-								opts.skipValued &&
-								existsByHashAndStandard(image.hash, standard.frontmatter.name)
-							) {
-								return { path: imagePath, skipped: true };
+if (
+							opts.mode !== 'full' &&
+							existsByHashAndStandard(image.hash, standard.frontmatter.name)
+						) {
+							if (opts.mode === 'sync') {
+								updateUrlByHashAndStandard(
+									image.hash,
+									standard.frontmatter.name,
+									toFileUrl(imagePath),
+								);
 							}
+							return { path: imagePath, skipped: true };
+						}
 
 							const result = await valuate({
 								url: toFileUrl(imagePath),
@@ -147,12 +154,17 @@ export const valueCommand = new Command('value')
 					if (opts.json) {
 						console.log(renderJsonArray(results));
 					} else {
-						if (opts.skipValued && skipped.length > 0) {
-							console.log(`跳过已估值 ${skipped.length} 张:`);
-							for (const s of skipped) {
-								console.log(`  ${s.path}`);
-							}
+if (opts.mode === 'sync' && skipped.length > 0) {
+						console.log(`跳过并更新 url 已估值 ${skipped.length} 张:`);
+						for (const s of skipped) {
+							console.log(`  ${s.path}`);
 						}
+					} else if (opts.mode === 'skip' && skipped.length > 0) {
+						console.log(`跳过已估值 ${skipped.length} 张:`);
+						for (const s of skipped) {
+							console.log(`  ${s.path}`);
+						}
+					}
 						console.log(renderBatchTable(results));
 						if (errors.length > 0) {
 							console.error(`\n失败 ${errors.length} 张:`);
