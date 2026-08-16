@@ -1,6 +1,7 @@
 import { processImage, createProvider, AppError } from '@llm-image/shared';
 import { Command } from 'commander';
 import { limitAsync } from 'es-toolkit';
+import { stat } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { loadConfig } from '../config/config.js';
 import { loadEnv } from '../config/env.js';
@@ -11,6 +12,8 @@ import { describeImage } from '../search/describe.js';
 import { getDb } from '../storage/db.js';
 import { QdrantStore } from '../storage/qdrant.js';
 import * as imageRepo from '../storage/repository.image.js';
+import { getFileIndexRepo } from '../fileindex.js';
+import { blake3HexFile, toFileUrl, mimeFromUrl } from '@llm-image/file-index';
 
 interface ImportResult {
 	path: string;
@@ -78,13 +81,16 @@ const env = loadEnv();
 
 				const limitedImport = limitAsync(async (imagePath: string): Promise<ImportResult> => {
 					try {
-						const url = pathToFileURL(imagePath).href;
-						const processed = await processImage(url, config.maxImageDimension);
+						const url = toFileUrl(imagePath);
+						const blake3 = await blake3HexFile(imagePath);
 
-					const existing = imageRepo.getByHash(processed.hash);
-						if (existing) {
-							return { path: imagePath, status: 'skipped', error: 'Duplicate hash' };
+						// Dedup by blake3 (content identity) via file-index
+						const knownLinks = getFileIndexRepo().findByBlake3(blake3);
+						if (knownLinks.some((l) => l.status !== 0)) {
+							return { path: imagePath, status: 'skipped', error: 'Duplicate blake3' };
 						}
+
+						const processed = await processImage(pathToFileURL(imagePath).href, config.maxImageDimension);
 
 						const pathRecord = imageRepo.getBySourcePath(imagePath);
 						if (pathRecord && pathRecord.status === 'indexed') {
@@ -131,6 +137,16 @@ const env = loadEnv();
 							qdrantPointId: String(rowId),
 							textDescription: description,
 							descriptionModel: provider.model,
+						});
+
+						// Register link in file-index after successful indexing
+						const { size } = await stat(imagePath);
+						getFileIndexRepo().register({
+							url,
+							blake3,
+							type: mimeFromUrl(url),
+							size: BigInt(size),
+							status: 3,
 						});
 
 						if (opts.verbose) {

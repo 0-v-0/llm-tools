@@ -1,9 +1,12 @@
 packages:
   - "shared"
+  - "file-index"
   - "image-classifier"
   - "img-search"
   - "img-val"
   - "tag-translator"
+  - "file-index"
 
 allowBuilds:
+  blake3: true
   esbuild: true

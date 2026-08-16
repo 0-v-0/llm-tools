@@ -11,6 +11,7 @@ import { resolveStandard } from '../standards/loader.js';
 import { toFileUrl } from '../util/url.js';
 import { valuate, type ValuationResult } from '../valuation/engine.js';
 import { existsByHashAndStandard, updateUrlByHashAndStandard } from '../storage/repository.valuation.js';
+import { registerLinkForFile } from '../fileindex.js';
 import { renderJson, renderJsonArray } from './output/json.js';
 import { renderValuationCard, renderBatchTable } from './output/table.js';
 import { createProgressBar } from './output/progress.js';
@@ -129,6 +130,7 @@ if (
 								config,
 								enableTools,
 							});
+							await registerLinkForFile(toFileUrl(imagePath), imagePath);
 							return { result, path: imagePath };
 						} catch (e) {
 							return { error: e instanceof Error ? e.message : String(e), path: imagePath };
@@ -193,6 +195,7 @@ if (opts.mode === 'sync' && skipped.length > 0) {
 						config,
 						enableTools,
 					});
+					await registerLinkForFile(toFileUrl(absPath), absPath);
 
 					if (isJsonFormat(opts.format)) {
 						console.log(renderJson(result));

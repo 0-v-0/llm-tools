@@ -17,6 +17,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@llm-image/file-index": "workspace:*",
 		"@llm-image/shared": "workspace:*",
 		"commander": "^15.0.0",
 		"es-toolkit": "^1.27.0",
