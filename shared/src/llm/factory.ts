@@ -5,7 +5,7 @@ import { OpenAIProvider } from './openai.js';
 
 /**
  * Provider configuration interface.
- * Both imgval's EnvConfig and imgsearch's EnvConfig structurally satisfy this.
+ * Both img-val's EnvConfig and img-search's EnvConfig structurally satisfy this.
  */
 export interface ProviderConfig {
 	LLM_PROVIDER: 'openai' | 'anthropic';

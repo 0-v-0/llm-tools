@@ -1,8 +1,8 @@
 packages:
   - "shared"
   - "image-classifier"
-  - "imgsearch"
-  - "imgval"
+  - "img-search"
+  - "img-val"
   - "tag-translator"
 
 allowBuilds:

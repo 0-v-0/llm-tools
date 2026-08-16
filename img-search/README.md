@@ -1,8 +1,8 @@
-# imgsearch
+# img-search
 
 Intelligent image search via LLM-driven interactive questioning.
 
-用户心中有一张目标图片，imgsearch 通过向用户反复提问（0~1 值或"不知道"），用贝叶斯推理逐步缩小候选集，以最少提问次数从十万级图片库中定位目标。
+用户心中有一张目标图片，img-search 通过向用户反复提问（0~1 值或"不知道"），用贝叶斯推理逐步缩小候选集，以最少提问次数从十万级图片库中定位目标。
 
 ## 工作原理
 
@@ -63,7 +63,7 @@ pnpm install
 
 ## 配置
 
-在 `imgsearch/` 下创建 `.env` 文件（参考 `.env.example`）：
+在 `img-search/` 下创建 `.env` 文件（参考 `.env.example`）：
 
 ```env
 # LLM（问题生成）
@@ -130,13 +130,13 @@ embedImageBatch = 16     # 图片 embedding 批大小
 
 ```bash
 # 导入目录中的图片（不递归）
-pnpm --filter imgsearch dev -- import ./photos
+pnpm --filter img-search dev -- import ./photos
 
 # 递归导入，指定并发数
-pnpm --filter imgsearch dev -- import ./photos --recursive --concurrency 8
+pnpm --filter img-search dev -- import ./photos --recursive --concurrency 8
 
 # 指定文件类型
-pnpm --filter imgsearch dev -- import ./photos --include "*.{jpg,png}"
+pnpm --filter img-search dev -- import ./photos --include "*.{jpg,png}"
 ```
 
 导入流程：
@@ -155,13 +155,13 @@ pnpm --filter imgsearch dev -- import ./photos --include "*.{jpg,png}"
 
 ```bash
 # 无提示词搜索（随机采样候选）
-pnpm --filter imgsearch dev -- search
+pnpm --filter img-search dev -- search
 
 # 带提示词搜索（语义搜索 bootstrap 候选集）
-pnpm --filter imgsearch dev -- search --hint "sunset over ocean"
+pnpm --filter img-search dev -- search --hint "sunset over ocean"
 
 # JSON 输出
-pnpm --filter imgsearch dev -- search --hint "cat playing" --json
+pnpm --filter img-search dev -- search --hint "cat playing" --json
 ```
 
 交互流程：
@@ -187,10 +187,10 @@ Your answer (0-1 or "unknown"): 0.8
 ### 查看库状态
 
 ```bash
-pnpm --filter imgsearch dev -- status
+pnpm --filter img-search dev -- status
 
 # JSON 输出
-pnpm --filter imgsearch dev -- status --json
+pnpm --filter img-search dev -- status --json
 ```
 
 输出示例：
@@ -208,7 +208,7 @@ pnpm --filter imgsearch dev -- status --json
 ## 架构
 
 ```
-imgsearch/src/
+img-search/src/
 ├── cli/                    # CLI 命令
 │   ├── index.ts            # commander 入口
 │   ├── import.ts           # 导入命令
@@ -261,19 +261,19 @@ imgsearch/src/
 
 ```bash
 # 运行测试
-pnpm --filter imgsearch test
+pnpm --filter img-search test
 
 # 类型检查
-pnpm --filter imgsearch typecheck
+pnpm --filter img-search typecheck
 
 # 编译
-pnpm --filter imgsearch build
+pnpm --filter img-search build
 
 # 开发模式运行（通过 tsx）
-pnpm --filter imgsearch dev -- <command>
+pnpm --filter img-search dev -- <command>
 
 # 生产模式运行（编译后）
-pnpm --filter imgsearch start -- <command>
+pnpm --filter img-search start -- <command>
 ```
 
 ### 测试

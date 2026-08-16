@@ -8,7 +8,7 @@ const origEnvDbDir = process.env.IMGSEARCH_DB_DIR;
 let dir: string;
 
 beforeEach(() => {
-	dir = mkdtempSync(join(tmpdir(), 'imgsearch-config-'));
+	dir = mkdtempSync(join(tmpdir(), 'img-search-config-'));
 	process.env.IMGSEARCH_DB_DIR = dir;
 });
 

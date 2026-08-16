@@ -1,4 +1,4 @@
-# imgval — 图片估值系统
+# img-val — 图片估值系统
 
 基于 LLM 的静态图片估值 CLI 工具。给定图片与估值标准，调用多模态 LLM 输出人民币最低/最高价值区间，差值代表不确定性。
 
@@ -9,41 +9,41 @@
 pnpm install
 
 # 构建
-pnpm --filter imgval build
+pnpm --filter img-val build
 
 # 配置环境变量
 cp .env.example .env
 # 编辑 .env 设置 API key
 
 # 单图估值
-node imgval/dist/index.js ./path/to/image.jpg
+node img-val/dist/index.js ./path/to/image.jpg
 
 # JSON 输出
-node imgval/dist/index.js ./path/to/image.jpg --format json
+node img-val/dist/index.js ./path/to/image.jpg --format json
 
 # 批量估值（自动识别目录）
-node imgval/dist/index.js ./images/ --concurrency 3
+node img-val/dist/index.js ./images/ --concurrency 3
 
 # 递归子目录批量估值
-node imgval/dist/index.js ./images/ --recursive --concurrency 4
+node img-val/dist/index.js ./images/ --recursive --concurrency 4
 
 # 批量估值并显示进度条
-node imgval/dist/index.js ./images/ --progress
+node img-val/dist/index.js ./images/ --progress
 
 # 跳过已估值（默认）：指纹+标准同时匹配时跳过
-node imgval/dist/index.js ./images/ --mode skip
+node img-val/dist/index.js ./images/ --mode skip
 
 # 跳过已估值并同步数据库中的 url（文件移动后可修复记录）
-node imgval/dist/index.js ./images/ --mode sync
+node img-val/dist/index.js ./images/ --mode sync
 
 # 全量重新估值
-node imgval/dist/index.js ./images/ --mode full
+node img-val/dist/index.js ./images/ --mode full
 
 # 搜索历史估值
-node imgval/dist/index.js search min:100 max:500
+node img-val/dist/index.js search min:100 max:500
 
 # 查看估值标准
-node imgval/dist/index.js standards list
+node img-val/dist/index.js standards list
 ```
 
 ## 环境变量
@@ -132,7 +132,7 @@ imgval move-low 500 ./low-value/ --path '**/a/*.jpg' --path '**/b/*.jpg'
 ## 开发
 
 ```bash
-pnpm --filter imgval dev      # 开发模式
-pnpm --filter imgval test     # 运行测试
-pnpm --filter imgval typecheck # 类型检查
+pnpm --filter img-val dev      # 开发模式
+pnpm --filter img-val test     # 运行测试
+pnpm --filter img-val typecheck # 类型检查
 ```

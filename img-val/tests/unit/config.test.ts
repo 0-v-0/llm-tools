@@ -8,7 +8,7 @@ const origEnvDbDir = process.env.IMGVAL_DB_DIR;
 let dir: string;
 
 beforeEach(() => {
-	dir = mkdtempSync(join(tmpdir(), 'imgval-config-'));
+	dir = mkdtempSync(join(tmpdir(), 'img-val-config-'));
 	process.env.IMGVAL_DB_DIR = dir;
 });
 

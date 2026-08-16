@@ -25,7 +25,7 @@ const envSchema = z.object({
 	QDRANT_COLLECTION: z.string().default('images'),
 	QDRANT_API_KEY: z.string().optional(),
 
-	// imgsearch
+	// img-search
 	IMGSEARCH_DB_DIR: z.string().optional(),
 });
 
