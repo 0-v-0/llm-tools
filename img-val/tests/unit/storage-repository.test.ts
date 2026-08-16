@@ -135,6 +135,19 @@ describe('storage-repository', () => {
 		expect(valuationRepo.existsByHashAndStandard('hash2', 'photo')).toBe(false);
 	});
 
+	it('updates url by hash and standard name', () => {
+		valuationRepo.insert(makeInsert({ imageHash: 'hash1', standardName: 'photo', url: 'file:///old/a.jpg' }));
+		valuationRepo.insert(makeInsert({ imageHash: 'hash1', standardName: 'art', url: 'file:///old/a.jpg' }));
+		valuationRepo.insert(makeInsert({ imageHash: 'hash1', standardName: 'photo', url: 'file:///old/b.jpg' }));
+
+		const changes = valuationRepo.updateUrlByHashAndStandard('hash1', 'photo', 'file:///new/a.jpg');
+		expect(changes).toBe(2);
+
+		const records = valuationRepo.getByHash('hash1');
+		expect(records.filter((r) => r.standardName === 'photo').every((r) => r.url === 'file:///new/a.jpg')).toBe(true);
+		expect(records.find((r) => r.standardName === 'art')?.url).toBe('file:///old/a.jpg');
+	});
+
 	it('respects limit', () => {
 		for (let i = 0; i < 10; i++) {
 			valuationRepo.insert(makeInsert({ imageHash: `hash${i}`, minValue: i * 10 }));

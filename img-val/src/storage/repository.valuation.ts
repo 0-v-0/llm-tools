@@ -89,6 +89,14 @@ export function existsByHashAndStandard(hash: string, standardName: string): boo
 	return row !== undefined;
 }
 
+export function updateUrlByHashAndStandard(hash: string, standardName: string, newUrl: string): number {
+	const db = getDb();
+	const result = db
+		.prepare('UPDATE valuation SET url = ? WHERE image_hash = ? AND standard_name = ?')
+		.run(newUrl, hash, standardName);
+	return Number(result.changes);
+}
+
 export function count(): number {
 	const db = getDb();
 	const row = db.prepare('SELECT COUNT(*) AS cnt FROM valuation').get() as Record<string, unknown>;
