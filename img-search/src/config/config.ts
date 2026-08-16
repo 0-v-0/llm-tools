@@ -2,6 +2,7 @@ import { ConfigError, createLlmConfigSchema } from '@llm-image/shared';
 import { existsSync, readFileSync } from 'node:fs';
 import { parse } from 'smol-toml';
 import { z } from 'zod';
+import { toErrorMessage } from '../util/error-message.js';
 import { getConfigPath } from './paths.js';
 
 const configSchema = z.object({
@@ -15,19 +16,27 @@ const configSchema = z.object({
 	igThreshold: z.number().positive().default(0.05),
 	maxRounds: z.number().int().positive().default(8),
 	minRounds: z.number().int().positive().default(2),
-	showThumbnails: z.boolean().default(false),
 
 	// Import
 	maxImageDimension: z.number().int().positive().default(512),
 	importConcurrency: z.number().int().positive().default(4),
 	embedTextBatch: z.number().int().positive().default(64),
 	embedImageBatch: z.number().int().positive().default(16),
+}).superRefine((data, ctx) => {
+	// 交叉校验：maxRounds < minRounds 会静默禁用低信息增益提前终止
+	if (data.maxRounds < data.minRounds) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: ['maxRounds'],
+			message: `maxRounds (${data.maxRounds}) 必须大于等于 minRounds (${data.minRounds})`,
+		});
+	}
 });
 
 export type AppConfig = z.infer<typeof configSchema>;
 
 export function loadConfig(): AppConfig {
-	const configPath = getConfigPath(process.env.IMGSEARCH_DB_DIR);
+	const configPath = getConfigPath(process.env.IMGDATA_DIR);
 	if (!existsSync(configPath)) {
 		return configSchema.parse({});
 	}
@@ -37,9 +46,7 @@ export function loadConfig(): AppConfig {
 	try {
 		parsed = parse(raw) as unknown as Record<string, unknown>;
 	} catch (e) {
-		throw new ConfigError(
-			`配置文件解析失败 ${configPath}: ${e instanceof Error ? e.message : String(e)}`,
-		);
+		throw new ConfigError(`配置文件解析失败 ${configPath}: ${toErrorMessage(e)}`);
 	}
 
 	const result = configSchema.safeParse(parsed);

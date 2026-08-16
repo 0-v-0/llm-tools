@@ -10,7 +10,7 @@ export const statusCommand = new Command('status')
 	.action((opts: { json?: boolean }) => {
 		try {
 			const env = loadEnv();
-			bootstrap(env.IMGSEARCH_DB_DIR);
+			bootstrap(env.IMGDATA_DIR);
 
 			const total = countTotal();
 			const byStatus = countByStatus();

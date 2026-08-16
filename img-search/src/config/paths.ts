@@ -2,22 +2,27 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-export function getHomeDir(): string {
-	return join(homedir(), '.imgsearch');
+/** 默认数据目录 ~/.img-data（未设置 IMGDATA_DIR 时使用）。 */
+export function getDefaultDataDir(): string {
+	return join(homedir(), '.img-data');
 }
 
-export function getDbPath(envDbDir?: string): string {
-	const dir = envDbDir ?? getHomeDir();
-	return join(dir, 'imgsearch.db');
+/** 解析数据目录：未显式指定时回退到默认目录 ~/.img-data。 */
+function resolveDataDir(baseDir?: string): string {
+	return baseDir ?? getDefaultDataDir();
 }
 
-export function getConfigPath(envDbDir?: string): string {
-	const dir = envDbDir ?? getHomeDir();
-	return join(dir, 'config.toml');
+export function getDbPath(baseDir?: string): string {
+	return join(resolveDataDir(baseDir), 'imgsearch.db');
 }
 
-export function bootstrap(envDbDir?: string): void {
-	const dbDir = envDbDir ?? getHomeDir();
+export function getConfigPath(baseDir?: string): string {
+	return join(resolveDataDir(baseDir), 'imgsearch.toml');
+}
+
+/** 确保数据目录存在。 */
+export function bootstrap(baseDir?: string): void {
+	const dbDir = resolveDataDir(baseDir);
 	if (!existsSync(dbDir)) {
 		mkdirSync(dbDir, { recursive: true });
 	}

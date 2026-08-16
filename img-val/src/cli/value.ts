@@ -80,7 +80,7 @@ export const valueCommand = new Command('value')
 			try {
 				const env = loadEnv();
 				const config = loadConfig();
-				bootstrap(env.IMGVAL_DB_DIR);
+				bootstrap(env.IMGDATA_DIR);
 
 				const enableTools = opts.tools !== false && config.enableTools;
 				const standard = await resolveStandard(opts.standard, config.standardsDir);

@@ -9,7 +9,7 @@ const MIGRATIONS_DIR = join(import.meta.dirname, 'migrations');
 export function getDb(): DB {
 	if (dbInstance) return dbInstance;
 
-	const dbPath = getDbPath(process.env.IMGVAL_DB_DIR);
+	const dbPath = getDbPath(process.env.IMGDATA_DIR);
 	dbInstance = openSqlite(dbPath, MIGRATIONS_DIR);
 	return dbInstance;
 }
