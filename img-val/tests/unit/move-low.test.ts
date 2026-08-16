@@ -68,7 +68,7 @@ describe('move-low command', () => {
 	}
 
 	beforeEach(() => {
-		root = mkdtempSync(join(tmpdir(), 'imgval-move-'));
+		root = mkdtempSync(join(tmpdir(), 'img-val-move-'));
 		sourceDir = join(root, 'source');
 		targetDir = join(root, 'low');
 		mkdirSync(sourceDir, { recursive: true });

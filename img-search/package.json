@@ -1,5 +1,5 @@
 {
-	"name": "imgsearch",
+	"name": "img-search",
 	"version": "0.1.0",
 	"description": "Intelligent image search via LLM-driven interactive questioning",
 	"bin": {
