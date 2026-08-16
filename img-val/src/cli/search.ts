@@ -100,7 +100,7 @@ export const searchCommand = new Command('search')
 	.action((query: string | undefined, opts: SearchOptions) => {
 		try {
 			const env = loadEnv();
-			bootstrap(env.IMGVAL_DB_DIR);
+			bootstrap(env.IMGDATA_DIR);
 
 			const limit = Math.min(parseInt(opts.limit ?? '20', 10), 50);
 			const { params: queryParams, freeText } = parseQuery(query ?? '');

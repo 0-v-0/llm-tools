@@ -25,8 +25,8 @@ const envSchema = z.object({
 	QDRANT_COLLECTION: z.string().default('images'),
 	QDRANT_API_KEY: z.string().optional(),
 
-	// img-search
-	IMGSEARCH_DB_DIR: z.string().optional(),
+	// img-search（与 img-val、img-tagger 共用统一数据目录）
+	IMGDATA_DIR: z.string().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

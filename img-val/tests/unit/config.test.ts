@@ -4,27 +4,27 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../src/config/config.js';
 
-const origEnvDbDir = process.env.IMGVAL_DB_DIR;
+const origEnvDbDir = process.env.IMGDATA_DIR;
 let dir: string;
 
 beforeEach(() => {
 	dir = mkdtempSync(join(tmpdir(), 'img-val-config-'));
-	process.env.IMGVAL_DB_DIR = dir;
+	process.env.IMGDATA_DIR = dir;
 });
 
 afterEach(() => {
 	rmSync(dir, { recursive: true, force: true });
 	if (origEnvDbDir === undefined) {
-		delete process.env.IMGVAL_DB_DIR;
+		delete process.env.IMGDATA_DIR;
 	} else {
-		process.env.IMGVAL_DB_DIR = origEnvDbDir;
+		process.env.IMGDATA_DIR = origEnvDbDir;
 	}
 });
 
 describe('loadConfig', () => {
 	it('配置文件不存在时返回默认值', () => {
 		const config = loadConfig();
-		expect(config.standardsDir).toBe(join(homedir(), '.imgval', 'standards'));
+		expect(config.standardsDir).toBe(join(homedir(), '.img-data', 'standards'));
 		expect(config.storeRaw).toBe(true);
 		expect(config.maxImageDimension).toBe(1568);
 		expect(config.maxToolRounds).toBe(4);
@@ -34,7 +34,7 @@ describe('loadConfig', () => {
 
 	it('读取并校验有效 TOML 配置', () => {
 		writeFileSync(
-			join(dir, 'config.toml'),
+			join(dir, 'imgval.toml'),
 			'standardsDir = "/data/standards"\nstoreRaw = false\nmaxImageDimension = 1024\nmaxToolRounds = 6\nenableTools = false\nfailLogDir = ""\n',
 		);
 		const config = loadConfig();
@@ -47,12 +47,12 @@ describe('loadConfig', () => {
 	});
 
 	it('非法 TOML 抛 ConfigError', () => {
-		writeFileSync(join(dir, 'config.toml'), 'maxToolRounds = [1,');
+		writeFileSync(join(dir, 'imgval.toml'), 'maxToolRounds = [1,');
 		expect(() => loadConfig()).toThrow(/配置文件解析失败/);
 	});
 
 	it('类型错误抛 ConfigError', () => {
-		writeFileSync(join(dir, 'config.toml'), 'maxImageDimension = "abc"\n');
+		writeFileSync(join(dir, 'imgval.toml'), 'maxImageDimension = "abc"\n');
 		expect(() => loadConfig()).toThrow(/配置文件校验失败/);
 	});
 });

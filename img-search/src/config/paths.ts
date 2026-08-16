@@ -3,21 +3,21 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 export function getHomeDir(): string {
-	return join(homedir(), '.imgsearch');
+	return join(homedir(), '.img-data');
 }
 
-export function getDbPath(envDbDir?: string): string {
-	const dir = envDbDir ?? getHomeDir();
+export function getDbPath(baseDir?: string): string {
+	const dir = baseDir ?? getHomeDir();
 	return join(dir, 'imgsearch.db');
 }
 
-export function getConfigPath(envDbDir?: string): string {
-	const dir = envDbDir ?? getHomeDir();
-	return join(dir, 'config.toml');
+export function getConfigPath(baseDir?: string): string {
+	const dir = baseDir ?? getHomeDir();
+	return join(dir, 'imgsearch.toml');
 }
 
-export function bootstrap(envDbDir?: string): void {
-	const dbDir = envDbDir ?? getHomeDir();
+export function bootstrap(baseDir?: string): void {
+	const dbDir = baseDir ?? getHomeDir();
 	if (!existsSync(dbDir)) {
 		mkdirSync(dbDir, { recursive: true });
 	}

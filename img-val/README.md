@@ -59,15 +59,15 @@ node img-val/dist/index.js standards list
 | `OPENAI_VISION_DETAIL` | `high` | Vision 详情级别 |
 | `ANTHROPIC_API_KEY` | — | Anthropic API 密钥 |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-5-20250929` | 模型名称 |
-| `IMGVAL_DB_DIR` | `~/.imgval` | 数据库目录（配置文件也存放于此） |
+| `IMGDATA_DIR` | `~/.img-data` | 统一数据目录（三工具共用，配置文件与数据库均存放于此，img-val 使用其中的 `imgval.toml` 与 `imgval.db`） |
 
 ## 配置文件
 
-行为调优参数统一放在配置文件 `~/.imgval/config.toml`（若设置了 `IMGVAL_DB_DIR`，则为 `<IMGVAL_DB_DIR>/config.toml`）。文件不存在时全部使用默认值；配置为唯一来源，无同名环境变量覆盖。
+行为调优参数统一放在配置文件 `~/.img-data/imgval.toml`（若设置了 `IMGDATA_DIR`，则为 `<IMGDATA_DIR>/imgval.toml`）。文件不存在时全部使用默认值；配置为唯一来源，无同名环境变量覆盖。
 
 ```toml
-# ~/.imgval/config.toml
-standardsDir = "~/.imgval/standards"   # 估值标准目录
+# ~/.img-data/imgval.toml
+standardsDir = "~/.img-data/standards"   # 估值标准目录
 storeRaw = true                         # 是否存储 LLM 原始回复文本
 maxImageDimension = 1568                # 送入 LLM 前最长边像素限制
 maxToolRounds = 4                       # 工具调用循环上限
@@ -127,7 +127,7 @@ imgval move-low 500 ./low-value/ --path '**/a/*.jpg' --path '**/b/*.jpg'
 
 与 SKILL.md 格式一致：YAML frontmatter + Markdown body。参见 `default-photo.md`。
 
-自定义标准放入标准目录（默认 `~/.imgval/standards/*.md`，可通过配置 `standardsDir` 修改）即可。
+自定义标准放入标准目录（默认 `~/.img-data/standards/*.md`，可通过配置 `standardsDir` 修改）即可。
 
 ## 开发
 

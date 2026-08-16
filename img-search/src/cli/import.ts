@@ -38,7 +38,7 @@ export const importCommand = new Command('import')
 			try {
 const env = loadEnv();
 			const config = loadConfig();
-			bootstrap(env.IMGSEARCH_DB_DIR);
+			bootstrap(env.IMGDATA_DIR);
 
 			const concurrency = Math.max(
 				1,

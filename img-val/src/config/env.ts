@@ -13,7 +13,7 @@ const envSchema = z.object({
 	ANTHROPIC_MODEL: z.string().default('claude-sonnet-4-5-20250929'),
 	ANTHROPIC_API_BASE: z.string().optional(),
 
-	IMGVAL_DB_DIR: z.string().optional(),
+	IMGDATA_DIR: z.string().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

@@ -99,14 +99,14 @@ QDRANT_COLLECTION=images
 | `QDRANT_URL`        | `http://localhost:6333`      | Qdrant 地址                       |
 | `QDRANT_COLLECTION` | `images`                     | Qdrant collection 名              |
 | `QDRANT_API_KEY`    | —                            | Qdrant API 密钥（远程部署时使用） |
-| `IMGSEARCH_DB_DIR`  | `~/.imgsearch`               | SQLite 数据库目录（配置文件也存放于此） |
+| `IMGDATA_DIR`       | `~/.img-data`                | 统一数据目录（三工具共用，SQLite 库 `imgsearch.db` 与配置文件 `imgsearch.toml` 均存放于此） |
 
 ### 配置文件
 
-算法与导入调优参数统一放在配置文件 `~/.imgsearch/config.toml`（若设置了 `IMGSEARCH_DB_DIR`，则为 `<IMGSEARCH_DB_DIR>/config.toml`）。文件不存在时全部使用默认值；配置为唯一来源，无同名环境变量覆盖。
+算法与导入调优参数统一放在配置文件 `~/.img-data/imgsearch.toml`（若设置了 `IMGDATA_DIR`，则为 `<IMGDATA_DIR>/imgsearch.toml`）。文件不存在时全部使用默认值；配置为唯一来源，无同名环境变量覆盖。
 
 ```toml
-# ~/.imgsearch/config.toml
+# ~/.img-data/imgsearch.toml
 alpha = 0.5              # 文本/视觉相似度 blend 权重 (0~1)
 lambda = 8               # 似然核锐度，越大越尖锐
 beamSize = 500           # beam 候选数量
@@ -215,7 +215,7 @@ img-search/src/
 │   ├── search.ts           # 交互式搜索命令
 │   └── status.ts           # 状态查询命令
 ├── config/
-│   ├── config.ts           # ~/.imgsearch/config.toml（zod + smol-toml 校验）
+│   ├── config.ts           # ~/.img-data/imgsearch.toml（zod + smol-toml 校验）
 │   ├── env.ts              # zod 环境变量校验
 │   └── paths.ts            # 数据目录路径
 ├── embedding/
@@ -245,7 +245,7 @@ img-search/src/
 
 ### 数据存储
 
-- **SQLite** (`~/.imgsearch/imgsearch.db`)：图片元数据、导入状态、描述文本
+- **SQLite** (`~/.img-data/imgsearch.db`)：图片元数据、导入状态、描述文本
 - **Qdrant**：向量索引（text + visual named vectors，1024 维 Cosine 距离）
 
 ### 依赖关系

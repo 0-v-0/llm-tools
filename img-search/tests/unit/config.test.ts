@@ -4,20 +4,20 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../src/config/config.js';
 
-const origEnvDbDir = process.env.IMGSEARCH_DB_DIR;
+const origEnvDbDir = process.env.IMGDATA_DIR;
 let dir: string;
 
 beforeEach(() => {
 	dir = mkdtempSync(join(tmpdir(), 'img-search-config-'));
-	process.env.IMGSEARCH_DB_DIR = dir;
+	process.env.IMGDATA_DIR = dir;
 });
 
 afterEach(() => {
 	rmSync(dir, { recursive: true, force: true });
 	if (origEnvDbDir === undefined) {
-		delete process.env.IMGSEARCH_DB_DIR;
+		delete process.env.IMGDATA_DIR;
 	} else {
-		process.env.IMGSEARCH_DB_DIR = origEnvDbDir;
+		process.env.IMGDATA_DIR = origEnvDbDir;
 	}
 });
 
@@ -41,7 +41,7 @@ describe('loadConfig', () => {
 
 	it('读取并校验有效 TOML 配置', () => {
 		writeFileSync(
-			join(dir, 'config.toml'),
+			join(dir, 'imgsearch.toml'),
 			'alpha = 0.3\nlambda = 16\nbeamSize = 100\ntopKQuestions = 20\ncandidateQuestions = 3\nigThreshold = 0.1\nmaxRounds = 12\nminRounds = 3\nshowThumbnails = true\nmaxImageDimension = 1024\nimportConcurrency = 2\nembedTextBatch = 32\nembedImageBatch = 8\n',
 		);
 		const config = loadConfig();
@@ -61,12 +61,12 @@ describe('loadConfig', () => {
 	});
 
 	it('非法 TOML 抛 ConfigError', () => {
-		writeFileSync(join(dir, 'config.toml'), 'beamSize = [1,');
+		writeFileSync(join(dir, 'imgsearch.toml'), 'beamSize = [1,');
 		expect(() => loadConfig()).toThrow(/配置文件解析失败/);
 	});
 
 	it('类型错误抛 ConfigError', () => {
-		writeFileSync(join(dir, 'config.toml'), 'lambda = "abc"\n');
+		writeFileSync(join(dir, 'imgsearch.toml'), 'lambda = "abc"\n');
 		expect(() => loadConfig()).toThrow(/配置文件校验失败/);
 	});
 });

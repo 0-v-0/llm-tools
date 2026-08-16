@@ -16,7 +16,7 @@ const configSchema = z.object({
 export type AppConfig = z.infer<typeof configSchema>;
 
 export function loadConfig(): AppConfig {
-	const configPath = getConfigPath(process.env.IMGVAL_DB_DIR);
+	const configPath = getConfigPath(process.env.IMGDATA_DIR);
 	if (!existsSync(configPath)) {
 		return configSchema.parse({});
 	}
