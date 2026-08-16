@@ -2,6 +2,7 @@ import { processImage, createProvider, AppError } from '@llm-image/shared';
 import { Command } from 'commander';
 import { limitAsync } from 'es-toolkit';
 import { pathToFileURL } from 'node:url';
+import { loadConfig } from '../config/config.js';
 import { loadEnv } from '../config/env.js';
 import { bootstrap } from '../config/paths.js';
 import { createEmbeddingProvider } from '../embedding/factory.js';
@@ -35,10 +36,14 @@ export const importCommand = new Command('import')
 			},
 		) => {
 			try {
-				const env = loadEnv();
-				bootstrap(env.IMGSEARCH_DB_DIR);
+const env = loadEnv();
+			const config = loadConfig();
+			bootstrap(env.IMGSEARCH_DB_DIR);
 
-				const concurrency = Math.max(1, parseInt(opts.concurrency ?? '4', 10));
+			const concurrency = Math.max(
+				1,
+				parseInt(opts.concurrency ?? String(config.importConcurrency), 10),
+			);
 				const extensions = opts.include
 					?.replace(/[{}*]/g, '')
 					.split(',')
@@ -61,7 +66,7 @@ export const importCommand = new Command('import')
 
 				getDb();
 				const provider = createProvider(env);
-				const embeddingProvider = createEmbeddingProvider(env);
+				const embeddingProvider = createEmbeddingProvider(env, config);
 				const qdrant = new QdrantStore(
 					env.QDRANT_URL,
 					env.QDRANT_COLLECTION,
@@ -74,7 +79,7 @@ export const importCommand = new Command('import')
 				const limitedImport = limitAsync(async (imagePath: string): Promise<ImportResult> => {
 					try {
 						const url = pathToFileURL(imagePath).href;
-						const processed = await processImage(url, env.IMGSEARCH_MAX_IMAGE_DIMENSION);
+						const processed = await processImage(url, config.maxImageDimension);
 
 					const existing = imageRepo.getByHash(processed.hash);
 						if (existing) {

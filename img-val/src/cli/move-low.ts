@@ -15,6 +15,7 @@ import {
 	type LowValueFile,
 } from '../storage/repository.move.js';
 import { renderMoveResults, type MoveResult } from './output/table.js';
+import { FORMAT_FLAGS, FORMAT_DESCRIPTION, isJsonFormat } from './output/format.js';
 
 type CollisionMode = 'skip' | 'rename' | 'abort' | 'keep-max';
 
@@ -23,7 +24,7 @@ const COLLISION_MODES: CollisionMode[] = ['skip', 'rename', 'abort', 'keep-max']
 interface MoveLowOptions {
 	limit?: string;
 	dryRun?: boolean;
-	json?: boolean;
+	format?: string;
 	onCollision?: string;
 	path?: string[];
 }
@@ -61,7 +62,7 @@ export const moveLowCommand = new Command('move-low')
 		(val: string, prev: string[]) => [...prev, val],
 		[] as string[],
 	)
-	.option('--json', '输出 JSON 格式')
+	.option(FORMAT_FLAGS, FORMAT_DESCRIPTION, 'text')
 	.action(
 		async (threshold: string, targetDir: string, opts: MoveLowOptions): Promise<void> => {
 			try {
@@ -96,7 +97,7 @@ export const moveLowCommand = new Command('move-low')
 					const totalFiles = countDistinctFiles(pathGlobs);
 					const n = Math.ceil(totalFiles * pct / 100);
 					if (n === 0) {
-						if (opts.json) {
+						if (isJsonFormat(opts.format)) {
 							console.log('[]');
 						} else {
 							console.log(renderMoveResults([]));
@@ -114,7 +115,7 @@ export const moveLowCommand = new Command('move-low')
 				if (limit > 0) files = files.slice(0, limit);
 
 				if (files.length === 0) {
-					if (opts.json) {
+					if (isJsonFormat(opts.format)) {
 						console.log('[]');
 					} else {
 						console.log(renderMoveResults([]));
@@ -166,7 +167,7 @@ export const moveLowCommand = new Command('move-low')
 							});
 							continue;
 						} else if (collisionMode === 'abort') {
-							if (opts.json) {
+							if (isJsonFormat(opts.format)) {
 								console.log(JSON.stringify(results, null, 2));
 							} else {
 								console.log(renderMoveResults(results));
@@ -235,7 +236,7 @@ export const moveLowCommand = new Command('move-low')
 				}
 
 				const moved = results.filter((r) => r.status === 'moved').length;
-				if (opts.json) {
+				if (isJsonFormat(opts.format)) {
 					console.log(JSON.stringify(results, null, 2));
 				} else {
 					console.log(renderMoveResults(results));

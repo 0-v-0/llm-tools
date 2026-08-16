@@ -5,6 +5,7 @@ import { createInterface } from 'readline/promises';
 import type { ParsedQuestion } from '../search/question-parser.js';
 import type { SessionConfig } from '../search/session.js';
 import type { SearchResult } from '../search/session.js';
+import { loadConfig } from '../config/config.js';
 import { loadEnv } from '../config/env.js';
 import { bootstrap } from '../config/paths.js';
 import { createEmbeddingProvider } from '../embedding/factory.js';
@@ -19,11 +20,12 @@ export const searchCommand = new Command('search')
 	.action(async (opts: { hint?: string; json?: boolean }) => {
 		try {
 			const env = loadEnv();
+			const config = loadConfig();
 			bootstrap();
 			getDb();
 
 			const llm = createProvider(env);
-			const embedding = createEmbeddingProvider(env);
+			const embedding = createEmbeddingProvider(env, config);
 			const qdrant = new QdrantStore(
 				env.QDRANT_URL,
 				env.QDRANT_COLLECTION,
@@ -33,21 +35,21 @@ export const searchCommand = new Command('search')
 
 			const algorithm = new SearchAlgorithm({ llm, embedding, qdrant });
 
-			const config: SessionConfig = {
-				beamSize: env.IMGSEARCH_BEAM_SIZE,
-				maxRounds: env.IMGSEARCH_MAX_ROUNDS,
-				minRounds: env.IMGSEARCH_MIN_ROUNDS,
-				igThreshold: env.IMGSEARCH_IG_THRESHOLD,
-				alpha: env.IMGSEARCH_ALPHA,
-				lambda: env.IMGSEARCH_LAMBDA,
-				candidateQuestions: env.IMGSEARCH_CANDIDATE_QUESTIONS,
+			const sessionConfig: SessionConfig = {
+				beamSize: config.beamSize,
+				maxRounds: config.maxRounds,
+				minRounds: config.minRounds,
+				igThreshold: config.igThreshold,
+				alpha: config.alpha,
+				lambda: config.lambda,
+				candidateQuestions: config.candidateQuestions,
 			};
 
 			const searchOptions: Parameters<typeof algorithm.initialize>[1] = {};
 			if (opts.hint !== undefined) {
 				searchOptions.hint = opts.hint;
 			}
-			await algorithm.initialize(config, searchOptions);
+			await algorithm.initialize(sessionConfig, searchOptions);
 
 			const rl = createInterface({ input: stdin, output: stdout });
 

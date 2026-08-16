@@ -5,6 +5,7 @@ import { readdir, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadEnv } from '../config/env.js';
+import { loadConfig } from '../config/config.js';
 import { bootstrap } from '../config/paths.js';
 import { resolveStandard } from '../standards/loader.js';
 import { toFileUrl } from '../util/url.js';
@@ -13,6 +14,7 @@ import { existsByHashAndStandard } from '../storage/repository.valuation.js';
 import { renderJson, renderJsonArray } from './output/json.js';
 import { renderValuationCard, renderBatchTable } from './output/table.js';
 import { createProgressBar } from './output/progress.js';
+import { FORMAT_FLAGS, FORMAT_DESCRIPTION, isJsonFormat } from './output/format.js';
 
 interface BatchEntry {
 	result?: ValuationResult;
@@ -55,7 +57,7 @@ export const valueCommand = new Command('value')
 	.option('--concurrency <n>', '并发数（仅目录模式）', '1')
 	.option('--include <glob>', '文件匹配模式（仅目录模式）', '*.{jpg,jpeg,png,webp}')
 	.option('--recursive', '递归子目录（仅目录模式）')
-	.option('--json', '输出 JSON 格式')
+	.option(FORMAT_FLAGS, FORMAT_DESCRIPTION, 'text')
 	.option('--progress', '显示进度条（仅目录模式）')
 	.option('--skip-valued', '跳过已估值图片（图片指纹+标准名称同时匹配）')
 	.option('--no-tools', '禁用工具调用')
@@ -68,7 +70,7 @@ export const valueCommand = new Command('value')
 				concurrency?: string;
 				include?: string;
 				recursive?: boolean;
-				json?: boolean;
+				format?: string;
 				progress?: boolean;
 				skipValued?: boolean;
 				tools?: boolean;
@@ -77,10 +79,11 @@ export const valueCommand = new Command('value')
 		) => {
 			try {
 				const env = loadEnv();
-				bootstrap(env.IMGVAL_DB_DIR, env.IMGVAL_STANDARDS_DIR);
+				const config = loadConfig();
+				bootstrap(env.IMGVAL_DB_DIR);
 
-				const enableTools = opts.tools !== false && env.LLM_ENABLE_TOOLS;
-				const standard = await resolveStandard(opts.standard);
+				const enableTools = opts.tools !== false && config.enableTools;
+				const standard = await resolveStandard(opts.standard, config.standardsDir);
 				const provider = createProvider(env);
 
 				const absPath = isAbsolute(pathArg) ? pathArg : join(process.cwd(), pathArg);
@@ -101,7 +104,7 @@ export const valueCommand = new Command('value')
 					const limitedValuate = limitAsync(async (imagePath: string): Promise<BatchEntry> => {
 						try {
 							const encodedUrl = pathToFileURL(imagePath).href;
-							const image = await processImage(encodedUrl, env.IMGVAL_MAX_IMAGE_DIMENSION);
+							const image = await processImage(encodedUrl, config.maxImageDimension);
 
 							if (
 								opts.skipValued &&
@@ -116,6 +119,7 @@ export const valueCommand = new Command('value')
 								standard,
 								provider,
 								env,
+								config,
 								enableTools,
 							});
 							return { result, path: imagePath };
@@ -124,7 +128,7 @@ export const valueCommand = new Command('value')
 						}
 					}, concurrency);
 
-					const showProgress = opts.progress && !opts.json;
+					const showProgress = opts.progress && !isJsonFormat(opts.format);
 					const progress = showProgress ? createProgressBar(images.length) : undefined;
 
 					const tasks = images.map((imagePath) =>
@@ -144,7 +148,7 @@ export const valueCommand = new Command('value')
 					const errors = entries.filter((e) => e.error !== undefined);
 					const skipped = entries.filter((e) => e.skipped);
 
-					if (opts.json) {
+					if (isJsonFormat(opts.format)) {
 						console.log(renderJsonArray(results));
 					} else {
 						if (opts.skipValued && skipped.length > 0) {
@@ -167,17 +171,18 @@ export const valueCommand = new Command('value')
 					}
 				} else {
 					const encodedUrl = pathToFileURL(absPath).href;
-					const image = await processImage(encodedUrl, env.IMGVAL_MAX_IMAGE_DIMENSION);
+					const image = await processImage(encodedUrl, config.maxImageDimension);
 					const result = await valuate({
 						url: toFileUrl(absPath),
 						image,
 						standard,
 						provider,
 						env,
+						config,
 						enableTools,
 					});
 
-					if (opts.json) {
+					if (isJsonFormat(opts.format)) {
 						console.log(renderJson(result));
 					} else {
 						console.log(renderValuationCard(result));
