@@ -11,6 +11,7 @@ import { resolveStandard } from '../standards/loader.js';
 import { toFileUrl } from '../util/url.js';
 import { valuate, type ValuationResult } from '../valuation/engine.js';
 import { existsByHashAndStandard } from '../storage/repository.valuation.js';
+import { registerLinkForFile } from '../fileindex.js';
 import { renderJson, renderJsonArray } from './output/json.js';
 import { renderValuationCard, renderBatchTable } from './output/table.js';
 import { createProgressBar } from './output/progress.js';
@@ -122,6 +123,7 @@ export const valueCommand = new Command('value')
 								config,
 								enableTools,
 							});
+							await registerLinkForFile(toFileUrl(imagePath), imagePath);
 							return { result, path: imagePath };
 						} catch (e) {
 							return { error: e instanceof Error ? e.message : String(e), path: imagePath };
@@ -181,6 +183,7 @@ export const valueCommand = new Command('value')
 						config,
 						enableTools,
 					});
+					await registerLinkForFile(toFileUrl(absPath), absPath);
 
 					if (isJsonFormat(opts.format)) {
 						console.log(renderJson(result));

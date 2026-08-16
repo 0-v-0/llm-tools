@@ -6,6 +6,7 @@ import { basename, extname, join, resolve } from 'node:path';
 import { loadEnv } from '../config/env.js';
 import { bootstrap } from '../config/paths.js';
 import { fileUrlToPath, toFileUrl } from '../util/url.js';
+import { registerLinkForFile, updateLinksForMove } from '../fileindex.js';
 import {
 	findLowValueFiles,
 	findLowestNFiles,
@@ -216,7 +217,9 @@ export const moveLowCommand = new Command('move-low')
 
 					try {
 						await rename(localPath, target);
-						const changes = updateRecordUrl(file.url, toFileUrl(target));
+						const newUrl = toFileUrl(target);
+						const changes = updateRecordUrl(file.url, newUrl);
+						await updateLinksForMove(file.url, newUrl);
 						const result: MoveResult = {
 							path: localPath,
 							targetPath: target,

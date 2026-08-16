@@ -16,6 +16,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@llm-image/file-index": "workspace:*",
 		"@llm-image/shared": "workspace:*",
 		"@qdrant/js-client-rest": "^1.12.0",
 		"commander": "^15.0.0",
