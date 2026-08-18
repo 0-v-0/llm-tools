@@ -81,65 +81,24 @@ const env = loadEnv();
 
 				const limitedImport = limitAsync(async (imagePath: string): Promise<ImportResult> => {
 					try {
-						const url = toFileUrl(imagePath);
-						const blake3 = await blake3HexFile(imagePath);
+					const url = toFileUrl(imagePath);
+					const blake3 = await blake3HexFile(imagePath);
 
-						// Dedup by blake3 (content identity) via file-index
-						const knownLinks = getFileIndexRepo().findByBlake3(blake3);
-						if (knownLinks.some((l) => l.status !== 0)) {
-							return { path: imagePath, status: 'skipped', error: 'Duplicate blake3' };
-						}
+					// Dedup by blake3 (original file identity) via file-index:
+					// skips re-importing the exact same file (already registered & non-failed).
+					const knownLinks = getFileIndexRepo().findByBlake3(blake3);
+					if (knownLinks.some((l) => l.status !== 0)) {
+						return { path: imagePath, status: 'skipped', error: 'Duplicate blake3' };
+					}
 
-						const processed = await processImage(pathToFileURL(imagePath).href, config.maxImageDimension);
+					const processed = await processImage(pathToFileURL(imagePath).href, config.maxImageDimension);
 
-						const pathRecord = imageRepo.getBySourcePath(imagePath);
-						if (pathRecord && pathRecord.status === 'indexed') {
-							return { path: imagePath, status: 'skipped', error: 'Already indexed' };
-						}
-
-						const rowId = imageRepo.insert({
-							sourcePath: imagePath,
-							hash: processed.hash,
-							status: 'processing',
-						});
-
-						if (rowId === 0) {
-							return { path: imagePath, status: 'skipped', error: 'Insert failed' };
-						}
-
-						const description = await describeImage({
-							provider,
-							imageDataUri: processed.base64,
-						});
-
-						const textVecs = await embeddingProvider.embedText([description]);
-						const visualVecs = await embeddingProvider.embedImage([processed.base64]);
-						const textVec = textVecs[0];
-						const visualVec = visualVecs[0];
-						if (!textVec || !visualVec) {
-							throw new Error('Embedding returned empty result');
-						}
-
-						await qdrant.upsertPoints([
-							{
-								id: rowId,
-								textVec,
-								visualVec,
-								payload: {
-									sourcePath: imagePath,
-									hash: processed.hash,
-									description,
-								},
-							},
-						]);
-
-						imageRepo.updateStatus(rowId, 'indexed', {
-							qdrantPointId: String(rowId),
-							textDescription: description,
-							descriptionModel: provider.model,
-						});
-
-						// Register link in file-index after successful indexing
+					// Dedup by hash (visual content) via image_import:
+					// two images differing only in EXIF have different blake3 but identical hash
+					// → skip the second one (avoid redundant LLM/embedding/Qdrant work).
+					const hashRecord = imageRepo.getByHash(processed.hash);
+					if (hashRecord && hashRecord.status === 'indexed') {
+						// Still register this file's blake3 in file-index so its url is tracked
 						const { size } = await stat(imagePath);
 						getFileIndexRepo().register({
 							url,
@@ -148,6 +107,64 @@ const env = loadEnv();
 							size: BigInt(size),
 							status: 3,
 						});
+						return { path: imagePath, status: 'skipped', error: 'Duplicate visual hash' };
+					}
+
+					const rowId = imageRepo.insert({
+						blake3,
+						hash: processed.hash,
+						status: 'processing',
+					});
+
+					if (rowId === 0) {
+						// INSERT OR IGNORE hit a pre-existing hash (race or re-entry); skip.
+						return { path: imagePath, status: 'skipped', error: 'Duplicate visual hash' };
+					}
+
+					const description = await describeImage({
+						provider,
+						imageDataUri: processed.base64,
+					});
+
+					const textVecs = await embeddingProvider.embedText([description]);
+					const visualVecs = await embeddingProvider.embedImage([processed.base64]);
+					const textVec = textVecs[0];
+					const visualVec = visualVecs[0];
+					if (!textVec || !visualVec) {
+						throw new Error('Embedding returned empty result');
+					}
+
+					await qdrant.upsertPoints([
+						{
+							id: rowId,
+							textVec,
+							visualVec,
+							payload: {
+								blake3,
+								hash: processed.hash,
+								description,
+							},
+						},
+					]);
+
+					imageRepo.updateStatus(rowId, 'indexed', {
+						qdrantPointId: String(rowId),
+						textDescription: description,
+						descriptionModel: provider.model,
+					});
+
+					// Register link in file-index after successful indexing
+					// (url/type/size are the file metadata owned by file-index;
+					//  every original blake3 is tracked, even if its visual hash collides
+					//  with another file's — e.g., EXIF-only differences)
+					const { size } = await stat(imagePath);
+					getFileIndexRepo().register({
+						url,
+						blake3,
+						type: mimeFromUrl(url),
+						size: BigInt(size),
+						status: 3,
+					});
 
 						if (opts.verbose) {
 							console.error(`[debug] indexed: ${imagePath}`);

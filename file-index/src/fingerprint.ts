@@ -21,7 +21,7 @@ export function blake3HexString(str: string): string {
 /** Decode a data: URI and hash the raw bytes. */
 export function blake3HexDataUri(dataUrl: string): string {
 	const comma = dataUrl.indexOf(',');
-	if (comma === -1) throw new Error('Invalid data URI');
+	if (comma < 0) throw new Error('Invalid data URI');
 	const raw = dataUrl.slice(comma + 1);
 	const meta = dataUrl.slice(5, comma);
 	const isBase64 = meta.endsWith(';base64');

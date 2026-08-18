@@ -99,7 +99,7 @@ QDRANT_COLLECTION=images
 | `QDRANT_URL`        | `http://localhost:6333`      | Qdrant 地址                       |
 | `QDRANT_COLLECTION` | `images`                     | Qdrant collection 名              |
 | `QDRANT_API_KEY`    | —                            | Qdrant API 密钥（远程部署时使用） |
-| `IMGDATA_DIR`       | `~/.img-data`                | 统一数据目录（三工具共用，SQLite 库 `imgsearch.db` 与配置文件 `imgsearch.toml` 均存放于此） |
+| `IMGDATA_DIR`       | `~/.img-data`                | 统一数据目录（img-search/img-tagger/img-val/file-index 共用，SQLite 库 `imgsearch.db` 与配置文件 `imgsearch.toml` 均存放于此；file-index 的 `file-index.db` 亦在此目录下） |
 
 ### 配置文件
 
@@ -142,12 +142,15 @@ pnpm --filter img-search dev -- import ./photos --include "*.{jpg,png}"
 导入流程：
 
 1. 遍历目录收集图片文件
-2. sharp 处理图片 → 元数据 + base64 + hash
-3. hash 去重（跳过已导入的图片）
-4. LLM 生成文本描述
-5. Jina 生成文本和视觉 embedding
-6. Qdrant upsert（point ID = SQLite 行 ID）
-7. 更新 SQLite 状态为 `indexed`
+2. `blake3HexFile` 计算原始文件 BLAKE3 指纹
+3. file-index 按 `blake3` 去重（已登记非失败状态 → 跳过，避免重读同一原始文件）
+4. `sharp` 缩放图片 → base64 + 处理后 `hash`（SHA-256，视觉内容指纹）
+5. image_import 按 `hash` 去重：仅 EXIF 不同的两张图片 `blake3` 不同但 `hash` 相同 → 跳过第二张（避免重复 LLM 描述 + embedding + Qdrant 写入），但仍将其 `blake3` 登记到 file-index 以追踪其 url
+6. LLM 生成文本描述
+7. Jina 生成文本和视觉 embedding
+8. Qdrant upsert（point ID = SQLite 行 ID，payload 含 `blake3` + `hash` + `description`）
+9. 更新 SQLite 状态为 `indexed`
+10. `register` 至 file-index（登记 `url`/`type`/`size` —— 文件元信息由 file-index 统一管理；每个原始 `blake3` 都被追踪，即便其视觉 `hash` 与已有文件冲突）
 
 导入是可恢复的：中断后重新运行，已索引的图片会跳过，未完成的会续传。
 
@@ -225,14 +228,15 @@ img-search/src/
 ├── storage/
 │   ├── db.ts               # SQLite 连接 + migration
 │   ├── qdrant.ts           # Qdrant 向量存储
-│   ├── types.ts            # 数据类型
-│   ├── repository.image.ts # image_import 表 CRUD
+│   ├── types.ts            # 数据类型（含 blake3 + hash）
+│   ├── repository.image.ts # image_import 表 CRUD（按 blake3 / hash）
 │   └── migrations/
-│       └── 001_init.sql    # 初始 schema
+│       ├── 001_init.sql               # 初始 schema（已废弃 source_path）
+│       └── 002_drop_source_path_hash_add_blake3.sql
 ├── search/                 # 核心搜索算法
 │   ├── bayes.ts            # 贝叶斯更新、信息增益、多样性（纯函数）
 │   ├── beam.ts             # Beam 类（候选集管理）
-│   ├── algorithm.ts        # 搜索循环编排
+│   ├── algorithm.ts        # 搜索循环编排（路径经 file-index 反查）
 │   ├── session.ts          # 会话状态管理
 │   ├── question-prompt.ts  # LLM prompt 构建
 │   ├── question-parser.ts  # 响应解析（4 级 fallback）
@@ -240,17 +244,20 @@ img-search/src/
 │   └── describe.ts         # LLM 图片描述生成
 ├── image/
 │   └── collect.ts          # 目录遍历收集图片
+├── fileindex.ts            # @llm-image/file-index repo 单例
 └── index.ts                # CLI 入点
 ```
 
 ### 数据存储
 
-- **SQLite** (`~/.img-data/imgsearch.db`)：图片元数据、导入状态、描述文本
-- **Qdrant**：向量索引（text + visual named vectors，1024 维 Cosine 距离）
+- **SQLite** (`~/.img-data/imgsearch.db`)：导入状态、描述文本；以 `blake3`（原始文件指纹，file-index 关联键）+ `hash`（处理后视觉指纹，UNIQUE 去重键）为两列
+- **file-index** (`~/.img-data/file-index.db`，经 `@llm-image/file-index`)：文件元信息（`url`/`type`/`size`），与 img-tagger/img-val 共享；追踪每个原始文件的 `blake3`
+- **Qdrant**：向量索引（text + visual named vectors，1024 维 Cosine 距离）；payload 含 `blake3` + `hash` + `description`
 
 ### 依赖关系
 
 - `@llm-image/shared` — 共享基础设施（LLM provider、图片处理、SQLite、错误处理）
+- `@llm-image/file-index` — 文件元信息统一管理（BLAKE3 指纹、url、type、size）
 - `@qdrant/js-client-rest` — Qdrant 客户端
 - `commander` — CLI 框架
 - `es-toolkit` — 工具函数（并发控制等）
