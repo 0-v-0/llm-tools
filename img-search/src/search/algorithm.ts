@@ -1,6 +1,9 @@
 import type { LLMProvider } from '@llm-image/shared';
+import type { FileIndexRepo } from '@llm-image/file-index';
 import type { EmbeddingProvider } from '../embedding/provider.js';
 import type { QdrantStore } from '../storage/qdrant.js';
+import { getFileIndexRepo } from '../fileindex.js';
+import { fileUrlToPath } from '@llm-image/file-index';
 import type { ParsedQuestion } from './question-parser.js';
 import type { CandidateInfo, QuestionHistoryEntry } from './question-prompt.js';
 import {
@@ -21,6 +24,8 @@ export interface SearchAlgorithmDeps {
 	llm: LLMProvider;
 	embedding: EmbeddingProvider;
 	qdrant: QdrantStore;
+	/** Optional injected file-index repo (for testing). Defaults to the shared singleton. */
+	fileIndexRepo?: FileIndexRepo;
 }
 
 export interface SearchOptions {
@@ -45,10 +50,27 @@ export interface SearchResultWithDescription extends SearchResult {
 export class SearchAlgorithm {
 	private deps: SearchAlgorithmDeps;
 	private session: SearchSession | null = null;
-	private candidateCache: Map<number, { description: string; sourcePath: string }> = new Map();
+	private candidateCache: Map<number, { description: string; blake3: string }> = new Map();
+	private fileIndexRepo: FileIndexRepo;
 
 	constructor(deps: SearchAlgorithmDeps) {
 		this.deps = deps;
+		this.fileIndexRepo = deps.fileIndexRepo ?? getFileIndexRepo();
+	}
+
+	/**
+	 * Resolve a display file path for a blake3 via file-index.
+	 * Returns the best link's url (decoded to a filesystem path), or undefined
+	 * if no link is registered for this blake3.
+	 */
+	private resolveSourcePath(blake3: string): string | undefined {
+		const link = this.fileIndexRepo.resolveBestUrl(blake3);
+		if (!link) return undefined;
+		try {
+			return fileUrlToPath(link.url);
+		} catch {
+			return link.url;
+		}
 	}
 
 	/**
@@ -68,11 +90,11 @@ export class SearchAlgorithm {
 			const results = await qdrant.searchText(hintVec, config.beamSize);
 			initialIds = results.map((r) => r.id);
 
-			// Cache descriptions from search results
+			// Cache descriptions + blake3 from search results
 			for (const r of results) {
 				const desc = (r.payload.description as string) ?? '';
-				const path = (r.payload.sourcePath as string) ?? '';
-				this.candidateCache.set(r.id, { description: desc, sourcePath: path });
+				const blake3 = (r.payload.blake3 as string) ?? '';
+				this.candidateCache.set(r.id, { description: desc, blake3 });
 			}
 		} else {
 			// Random sampling via scroll
@@ -81,8 +103,8 @@ export class SearchAlgorithm {
 
 			for (const r of results) {
 				const desc = (r.payload.description as string) ?? '';
-				const path = (r.payload.sourcePath as string) ?? '';
-				this.candidateCache.set(r.id, { description: desc, sourcePath: path });
+				const blake3 = (r.payload.blake3 as string) ?? '';
+				this.candidateCache.set(r.id, { description: desc, blake3 });
 			}
 		}
 
@@ -298,8 +320,8 @@ export class SearchAlgorithm {
 				// Ensure candidate is in cache
 				if (!this.candidateCache.has(candidate.id)) {
 					const desc = (candidate.payload.description as string) ?? '';
-					const path = (candidate.payload.sourcePath as string) ?? '';
-					this.candidateCache.set(candidate.id, { description: desc, sourcePath: path });
+					const blake3 = (candidate.payload.blake3 as string) ?? '';
+					this.candidateCache.set(candidate.id, { description: desc, blake3 });
 				}
 			}
 			this.session.updateBeam(newBeam);
@@ -345,8 +367,9 @@ export class SearchAlgorithm {
 				description: cached?.description ?? `Image ${item.id}`,
 				probability: item.prob,
 			};
-			if (cached?.sourcePath) {
-				result.sourcePath = cached.sourcePath;
+			if (cached?.blake3) {
+				const sourcePath = this.resolveSourcePath(cached.blake3);
+				if (sourcePath) result.sourcePath = sourcePath;
 			}
 			return result;
 		});

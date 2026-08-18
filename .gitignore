@@ -32,3 +32,6 @@ dist
 
 *.map
 pnpm-lock.yaml
+
+# codegraph index cache
+.codegraph/
