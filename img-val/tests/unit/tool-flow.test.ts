@@ -20,11 +20,10 @@ const { DatabaseSync } = require('node:sqlite');
 
 function createTestDb() {
 	const db = new DatabaseSync(':memory:');
-	const sql = readFileSync(
-		join(import.meta.dirname, '..', '..', 'src', 'storage', 'migrations', '001_init.sql'),
-		'utf-8',
-	);
-	db.exec(sql);
+	const migrationsDir = join(import.meta.dirname, '..', '..', 'src', 'storage', 'migrations');
+	for (const file of ['001_init.sql', '002_logprobs.sql']) {
+		db.exec(readFileSync(join(migrationsDir, file), 'utf-8'));
+	}
 	return db;
 }
 
@@ -117,7 +116,12 @@ describe('tool-flow', () => {
 			toolFallback: false,
 			inputTokens: 0,
 			outputTokens: 0,
+			minLogprob: null,
+			maxLogprob: null,
+			samplesMin: 1,
+			samplesMax: 1,
 			rawLlmText: null,
+			confidenceScore: null,
 		});
 
 		const fakeProvider = new FakeProvider([
@@ -264,7 +268,12 @@ describe('tool-flow', () => {
 			toolFallback: false,
 			inputTokens: 0,
 			outputTokens: 0,
+			minLogprob: null,
+			maxLogprob: null,
+			samplesMin: 1,
+			samplesMax: 1,
 			rawLlmText: null,
+			confidenceScore: null,
 		});
 		valuationRepo.insert({
 			imageHash: 'seed-b',
@@ -287,7 +296,12 @@ describe('tool-flow', () => {
 			toolFallback: false,
 			inputTokens: 0,
 			outputTokens: 0,
+			minLogprob: null,
+			maxLogprob: null,
+			samplesMin: 1,
+			samplesMax: 1,
 			rawLlmText: null,
+			confidenceScore: null,
 		});
 
 		const result = await executeToolCall(

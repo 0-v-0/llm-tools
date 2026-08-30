@@ -24,6 +24,11 @@ export interface ValuationRecord {
 	toolFallback: boolean;
 	inputTokens: number | null;
 	outputTokens: number | null;
+	minLogprob: number | null;
+	maxLogprob: number | null;
+	confidenceScore: number | null;
+	samplesMin: number;
+	samplesMax: number;
 	valuedAt: string;
 }
 
@@ -58,5 +63,10 @@ export interface ValuationInsert {
 	toolFallback: boolean;
 	inputTokens: number | null;
 	outputTokens: number | null;
+	minLogprob: number | null;
+	maxLogprob: number | null;
+	confidenceScore: number | null;
+	samplesMin: number;
+	samplesMax: number;
 	rawLlmText: string | null;
 }

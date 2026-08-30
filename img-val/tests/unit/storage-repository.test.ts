@@ -12,11 +12,10 @@ const { DatabaseSync } = require('node:sqlite');
 
 function createTestDb() {
 	const db = new DatabaseSync(':memory:');
-	const sql = readFileSync(
-		join(import.meta.dirname, '..', '..', 'src', 'storage', 'migrations', '001_init.sql'),
-		'utf-8',
-	);
-	db.exec(sql);
+	const migrationsDir = join(import.meta.dirname, '..', '..', 'src', 'storage', 'migrations');
+	for (const file of ['001_init.sql', '002_logprobs.sql']) {
+		db.exec(readFileSync(join(migrationsDir, file), 'utf-8'));
+	}
 	return db;
 }
 
@@ -42,7 +41,12 @@ function makeInsert(overrides: Partial<ValuationInsert> = {}): ValuationInsert {
 		toolFallback: false,
 		inputTokens: 1000,
 		outputTokens: 50,
+		minLogprob: null,
+		maxLogprob: null,
+		samplesMin: 1,
+		samplesMax: 1,
 		rawLlmText: null,
+		confidenceScore: null,
 		...overrides,
 	};
 }
@@ -57,7 +61,7 @@ describe('storage-repository', () => {
 	});
 
 	it('inserts and retrieves by id', () => {
-		const id = valuationRepo.insert(makeInsert());
+		const id = valuationRepo.insert(makeInsert({ confidenceScore: 0.42 }));
 		expect(id).toBeGreaterThan(0);
 
 		const record = valuationRepo.getById(id);
@@ -66,6 +70,8 @@ describe('storage-repository', () => {
 		expect(record?.minValue).toBe(100);
 		expect(record?.maxValue).toBe(500);
 		expect(record?.description).toBe('一张风景照片');
+		// confidence_score 列写入与读回归，验证数值化置信度落库
+		expect(record?.confidenceScore).toBeCloseTo(0.42, 5);
 	});
 
 	it('retrieves by hash', () => {

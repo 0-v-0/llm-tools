@@ -24,6 +24,11 @@ function rowToRecord(row: Record<string, unknown>): ValuationRecord {
 		toolFallback: row.tool_fallback === 1,
 		inputTokens: (row.input_tokens as number | null) ?? null,
 		outputTokens: (row.output_tokens as number | null) ?? null,
+		minLogprob: (row.min_logprob as number | null) ?? null,
+		maxLogprob: (row.max_logprob as number | null) ?? null,
+		confidenceScore: (row.confidence_score as number | null) ?? null,
+		samplesMin: (row.samples_min as number | null) ?? 1,
+		samplesMax: (row.samples_max as number | null) ?? 1,
 		valuedAt: row.valued_at as string,
 	};
 }
@@ -35,8 +40,9 @@ export function insert(r: ValuationInsert): number {
       image_hash, url, image_format, width, height, channels, size_bytes,
       undecodable_pixels, min_value, max_value, currency,
       standard_name, standard_version, llm_model,
-      description, notes, tool_used, tool_fallback, input_tokens, output_tokens, raw_llm_text
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		description, notes, tool_used, tool_fallback, input_tokens, output_tokens,
+      min_logprob, max_logprob, confidence_score, samples_min, samples_max, raw_llm_text
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
 	const result = stmt.run(
@@ -60,6 +66,11 @@ export function insert(r: ValuationInsert): number {
 		r.toolFallback ? 1 : 0,
 		r.inputTokens,
 		r.outputTokens,
+		r.minLogprob,
+		r.maxLogprob,
+		r.confidenceScore,
+		r.samplesMin,
+		r.samplesMax,
 		r.rawLlmText,
 	);
 	return Number(result.lastInsertRowid);
