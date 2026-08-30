@@ -53,6 +53,10 @@ export interface CompleteRequest {
 	temperature?: number | undefined;
 	maxTokens?: number | undefined;
 	responseSchema?: ResponseSchema | undefined;
+	/** Request per-token logprobs for the output. Enables confidence calibration. */
+	logprobs?: boolean | undefined;
+	/** Number of top alternative tokens per position (requires logprobs). */
+	topLogprobs?: number | undefined;
 }
 
 export interface ToolCall {
@@ -66,11 +70,35 @@ export interface UsageInfo {
 	outputTokens: number;
 }
 
+/** A single alternative token considered at one generation step. */
+export interface TopLogprob {
+	token: string;
+	logprob: number;
+}
+
+/** One generated output token with its log-probability and top alternatives. */
+export interface LogprobToken {
+	token: string;
+	logprob: number;
+	topLogprobs?: TopLogprob[] | undefined;
+}
+
+/**
+ * Flattened per-token logprobs of the model's output, in generation order.
+ * Covers text / JSON-content tokens. Note: tool-call argument tokens are NOT
+ * included by providers, so logprobs are only meaningful when the value is
+ * emitted as JSON *content* (OpenAI response_format or Anthropic text JSON).
+ */
+export interface LogprobInfo {
+	tokens: LogprobToken[];
+}
+
 export interface CompleteResponse {
 	stopReason: StopReason;
 	text: string;
 	toolCalls: ToolCall[];
 	usage?: UsageInfo | undefined;
+	logprobs?: LogprobInfo | undefined;
 }
 
 export interface LLMProvider {

@@ -7,6 +7,7 @@ import type {
 	ContentBlock,
 	StopReason,
 	ToolDef,
+	LogprobInfo,
 } from './provider.js';
 import { LLMError } from '../util/errors.js';
 
@@ -164,7 +165,14 @@ export class AnthropicProvider implements LLMProvider {
 			if (tools) createOptions.tools = tools;
 			if (req.temperature !== undefined) createOptions.temperature = req.temperature;
 
-			const resp = await this.client.messages.create(createOptions);
+			// logprobs is supported by the Anthropic API but not yet in this SDK's types.
+			// Build params loosely so we can pass it through without `any` leaks elsewhere.
+			const params: Record<string, unknown> = { ...createOptions };
+			if (req.logprobs) params.logprobs = true;
+
+			const resp = await this.client.messages.create(
+				params as unknown as Anthropic.MessageCreateParamsNonStreaming,
+			);
 
 			let stopReason: StopReason = 'stop';
 			if (resp.stop_reason === 'tool_use') stopReason = 'tool_use';
@@ -172,10 +180,30 @@ export class AnthropicProvider implements LLMProvider {
 
 			let text = '';
 			const toolCalls: CompleteResponse['toolCalls'] = [];
+			const logprobTokens: LogprobInfo['tokens'] = [];
 
 			for (const block of resp.content) {
 				if (block.type === 'text') {
 					text += block.text;
+					const lp = (block as unknown as {
+						logprobs?: {
+							tokens?: string[];
+							token_logprobs?: number[];
+							top_logprobs?: Array<Array<{ token: string; logprob: number }>>;
+						};
+					}).logprobs;
+					if (lp?.tokens && lp.token_logprobs) {
+						for (let i = 0; i < lp.tokens.length; i++) {
+							logprobTokens.push({
+								token: lp.tokens[i]!,
+								logprob: lp.token_logprobs[i]!,
+								topLogprobs: lp.top_logprobs?.[i]?.map((x) => ({
+									token: x.token,
+									logprob: x.logprob,
+								})),
+							});
+						}
+					}
 				} else if (block.type === 'tool_use') {
 					toolCalls.push({
 						id: block.id,
@@ -190,7 +218,10 @@ export class AnthropicProvider implements LLMProvider {
 				outputTokens: resp.usage.output_tokens,
 			};
 
-			return { stopReason, text, toolCalls, usage };
+			const result: CompleteResponse = { stopReason, text, toolCalls, usage };
+			if (logprobTokens.length > 0) result.logprobs = { tokens: logprobTokens };
+
+			return result;
 		} catch (e) {
 			if (e instanceof LLMError) throw e;
 			throw new LLMError(`Anthropic API 调用失败: ${(e as Error).message}`, e);

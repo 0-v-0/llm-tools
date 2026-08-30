@@ -7,9 +7,10 @@ import type {
 	ToolDef,
 	UsageInfo,
 	ResponseSchema,
+	LogprobInfo,
 } from '@llm-image/shared';
 import { LLMError } from '@llm-image/shared';
-import { SUBMIT_VALUATION_TOOL, VALUATION_RESPONSE_FORMAT } from '../llm/response-parser.js';
+import { submitToolFor } from '../llm/response-parser.js';
 import { SEARCH_VALUATIONS_TOOL, GET_EXIF_TOOL, executeToolCall } from './tools.js';
 
 export interface ToolFlowResult {
@@ -17,6 +18,7 @@ export interface ToolFlowResult {
 	toolUsed: boolean;
 	toolFallback: boolean;
 	usage?: UsageInfo | undefined;
+	logprobs?: LogprobInfo | undefined;
 	modelUsed: string;
 }
 
@@ -30,6 +32,12 @@ export interface ToolFlowInput {
 	responseSchema?: ResponseSchema | undefined;
 	imageUrl?: string;
 	standardName?: string;
+	/** 请求 per-token logprobs，用于校准置信度。启用时数值走 JSON content 路径。 */
+	logprobs?: boolean | undefined;
+	/** top-k 候选 token（需要 logprobs）。 */
+	topLogprobs?: number | undefined;
+	/** 采样温度；多样本聚合时由 engine 传入 > 0 以产生多样性。 */
+	temperature?: number | undefined;
 }
 
 /**
@@ -65,12 +73,16 @@ export async function runToolFlow(input: ToolFlowInput): Promise<ToolFlowResult>
 			undefined,
 			responseSchema,
 			maxRounds,
+			input.logprobs,
+			input.topLogprobs,
+			input.temperature,
 		);
 		return {
 			text: resp.text,
 			toolUsed: false,
 			toolFallback: false,
 			usage: resp.usage,
+			logprobs: resp.logprobs,
 			modelUsed: provider.model,
 		};
 	}
@@ -80,22 +92,28 @@ export async function runToolFlow(input: ToolFlowInput): Promise<ToolFlowResult>
 			provider,
 			systemPrompt,
 			userMessages,
-true,
-		enableSearchTools,
-		imageUrl,
-		standardName,
-		responseSchema,
-		maxRounds,
-	);
+			true,
+			enableSearchTools,
+			imageUrl,
+			standardName,
+			responseSchema,
+			maxRounds,
+			input.logprobs,
+			input.topLogprobs,
+			input.temperature,
+		);
 		return {
 			text: resp.text,
 			toolUsed: resp.toolUsed,
 			toolFallback: false,
 			usage: resp.usage,
+			logprobs: resp.logprobs,
 			modelUsed: provider.model,
 		};
 	} catch {
-		// Fallback: retry without search tools (keep constrained decoding)
+		// Fallback: retry without search tools (keep constrained decoding).
+		// Note: this degraded retry drops logprobs/temperature — acceptable; we
+		// simply lose the calibration signal rather than failing the valuation.
 		const resp = await callProvider(
 			provider,
 			systemPrompt,
@@ -112,6 +130,7 @@ true,
 			toolUsed: false,
 			toolFallback: true,
 			usage: resp.usage,
+			logprobs: resp.logprobs,
 			modelUsed: provider.model,
 		};
 	}
@@ -121,6 +140,7 @@ interface InternalResult {
 	text: string;
 	toolUsed: boolean;
 	usage?: UsageInfo | undefined;
+	logprobs?: LogprobInfo | undefined;
 }
 
 async function callProvider(
@@ -133,6 +153,9 @@ async function callProvider(
 	standardName: string | undefined,
 	responseSchema: ResponseSchema | undefined,
 	maxRounds: number,
+	logprobs?: boolean | undefined,
+	topLogprobs?: number | undefined,
+	temperature?: number | undefined,
 ): Promise<InternalResult> {
 	const messages: LLMMessage[] = [{ role: 'system', content: systemPrompt }, ...userMessages];
 
@@ -140,7 +163,10 @@ async function callProvider(
 	const tools: ToolDef[] = [];
 	if (withTools) tools.push(GET_EXIF_TOOL);
 	if (withTools && enableSearchTools) tools.push(SEARCH_VALUATIONS_TOOL);
-	if (responseSchema) tools.push(SUBMIT_VALUATION_TOOL);
+	// submit tool is derived from the response schema so each bound (min/max) carries its own schema (plan C).
+	// 但当启用 logprobs 时，必须让数值以 JSON **content** 形式产出（OpenAI response_format / Anthropic 文本 JSON），
+	// 否则数值落在 tool_use 参数里，提供者不会返回其 token logprobs。因此此处不再下发 submit 工具。
+	if (responseSchema && !logprobs) tools.push(submitToolFor(responseSchema));
 
 	let toolUsed = false;
 
@@ -151,6 +177,9 @@ async function callProvider(
 		};
 		if (tools.length > 0) req.tools = tools;
 		if (responseSchema) req.responseSchema = responseSchema;
+		if (logprobs) req.logprobs = true;
+		if (topLogprobs && topLogprobs > 0) req.topLogprobs = topLogprobs;
+		if (temperature !== undefined) req.temperature = temperature;
 
 		const resp: CompleteResponse = await provider.complete(req);
 
@@ -159,7 +188,7 @@ async function callProvider(
 			const submitCall = resp.toolCalls.find((tc) => tc.name === 'submit_valuation');
 			if (submitCall) {
 				// Extract arguments as the final JSON text response
-				return { text: submitCall.arguments, toolUsed, usage: resp.usage };
+				return { text: submitCall.arguments, toolUsed, usage: resp.usage, logprobs: resp.logprobs };
 			}
 
 			// Handle real tool calls (search_valuations etc.)
@@ -201,7 +230,7 @@ async function callProvider(
 		}
 
 		// stop or length — return final text
-		return { text: resp.text, toolUsed, usage: resp.usage };
+		return { text: resp.text, toolUsed, usage: resp.usage, logprobs: resp.logprobs };
 	}
 
 	// Exhausted rounds — return last text or throw

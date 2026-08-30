@@ -32,6 +32,17 @@ describe('loadConfig', () => {
 		expect(config.failLogDir).toBeUndefined();
 	});
 
+	it('usePathDecoding 默认关闭、pathTopK 默认 20，且可显式开启', () => {
+		const def = loadConfig();
+		expect(def.usePathDecoding).toBe(false);
+		expect(def.pathTopK).toBe(20);
+
+		writeFileSync(join(dir, 'imgval.toml'), 'usePathDecoding = true\npathTopK = 5\n');
+		const cfg = loadConfig();
+		expect(cfg.usePathDecoding).toBe(true);
+		expect(cfg.pathTopK).toBe(5);
+	});
+
 	it('读取并校验有效 TOML 配置', () => {
 		writeFileSync(
 			join(dir, 'imgval.toml'),

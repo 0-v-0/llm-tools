@@ -15,6 +15,9 @@ export type {
 	UsageInfo,
 	CompleteResponse,
 	LLMProvider,
+	TopLogprob,
+	LogprobToken,
+	LogprobInfo,
 } from './llm/provider.js';
 export { OpenAIProvider } from './llm/openai.js';
 export { AnthropicProvider } from './llm/anthropic.js';

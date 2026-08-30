@@ -6,6 +6,7 @@ import type {
 	LLMMessage,
 	ContentBlock,
 	StopReason,
+	LogprobInfo,
 } from './provider.js';
 import { LLMError } from '../util/errors.js';
 
@@ -168,6 +169,13 @@ export class OpenAIProvider implements LLMProvider {
 
 			if (req.temperature !== undefined) createOptions.temperature = req.temperature;
 			if (req.maxTokens !== undefined) createOptions.max_tokens = req.maxTokens;
+			if (req.logprobs) {
+				createOptions.logprobs = true;
+				// Cap top_logprobs per API limits (max 20); absent means only the chosen token.
+				if (req.topLogprobs && req.topLogprobs > 0) {
+					createOptions.top_logprobs = Math.min(req.topLogprobs, 20);
+				}
+			}
 
 			const resp = await this.client.chat.completions.create(createOptions);
 
@@ -199,6 +207,8 @@ export class OpenAIProvider implements LLMProvider {
 
 			const result: CompleteResponse = { stopReason, text, toolCalls };
 			if (usage) result.usage = usage;
+			const logprobs = mapOpenAILogprobs(choice.logprobs);
+			if (logprobs) result.logprobs = logprobs;
 
 			return result;
 		} catch (e) {
@@ -206,4 +216,19 @@ export class OpenAIProvider implements LLMProvider {
 			throw new LLMError(`OpenAI API 调用失败: ${(e as Error).message}`, e);
 		}
 	}
+}
+
+/** Map OpenAI's choice.logprobs.content (text/JSON-content tokens) into LogprobInfo. */
+function mapOpenAILogprobs(logprobs: unknown): LogprobInfo | undefined {
+	const lp = logprobs as
+		| { content?: Array<{ token: string; logprob: number; top_logprobs?: Array<{ token: string; logprob: number }> }> }
+		| null
+		| undefined;
+	if (!lp?.content) return undefined;
+	const tokens = lp.content.map((t) => ({
+		token: t.token,
+		logprob: t.logprob,
+		topLogprobs: t.top_logprobs?.map((x) => ({ token: x.token, logprob: x.logprob })),
+	}));
+	return { tokens };
 }

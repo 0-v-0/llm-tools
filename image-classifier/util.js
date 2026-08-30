@@ -7,7 +7,7 @@ export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 export async function completeChat(messages, timeoutSeconds, maxTokens = 4096) {
 	const resp = await openai.chat.completions.create(
 		{
-			model: 'gpt-5.1',
+			model: 'gpt-5.5',
 			messages,
 			max_tokens: maxTokens,
 			temperature: 0.5,

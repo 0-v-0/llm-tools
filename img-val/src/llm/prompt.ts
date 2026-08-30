@@ -13,6 +13,7 @@ export function buildPrompt(
 	enableTools: boolean,
 	enableSearchTools: boolean | undefined = enableTools,
 	constrained: boolean = false,
+	bound?: 'min' | 'max',
 ): BuiltPrompt {
 	// 构建规则列表（最小化原则）
 	const rules: string[] = ['1. 完全遵循下方《估值标准》中的评分维度、权重与参考价格区间。'];
@@ -30,21 +31,55 @@ export function buildPrompt(
 	}
 
 	const jsonRuleIndex = enableTools ? 3 : 2;
-	if (constrained) {
-		// 约束解码时，schema 已由 provider 强制，prompt 只需说明字段含义
-		rules.push(
-			`${jsonRuleIndex}. 输出 JSON，包含字段: min_value (最低价值), max_value (最高价值, >= min_value), rationale (≤200字中文说明), confidence (low|medium|high)。`,
-		);
+	if (bound === 'min') {
+		// 仅估算【客观假设】下的最低价值，避免被 max 锚定
+		if (constrained) {
+			rules.push(
+				`${jsonRuleIndex}. 本请求仅估算【客观假设】下的最低价值。输出 JSON，仅含字段: min_value (最低价值, 即图片对大多数人的客观价值，可能无意义、可丢弃), rationale (≤200字中文说明), confidence (low|medium|high)。不要参考或推导 max_value。`,
+			);
+		} else {
+			rules.push(
+				`${jsonRuleIndex}. 输出必须为合法 JSON，且仅包含以下字段（不要参考或推导 max_value）：
+{
+	"min_value": <number>,
+	"rationale": "<不超过 200 字的中文说明，解释客观价值依据>",
+	"confidence": "<low | medium | high>"
+}`,
+			);
+		}
+	} else if (bound === 'max') {
+		// 仅估算【最好假设】下的最高价值，避免被 min 锚定
+		if (constrained) {
+			rules.push(
+				`${jsonRuleIndex}. 本请求仅估算【最好假设】下的最高价值。输出 JSON，仅含字段: max_value (最高价值, 即图片可能承载重大情感或数据价值、难以替代的情况), rationale (≤200字中文说明), confidence (low|medium|high)。不要参考或推导 min_value。`,
+			);
+		} else {
+			rules.push(
+				`${jsonRuleIndex}. 输出必须为合法 JSON，且仅包含以下字段（不要参考或推导 min_value）：
+{
+	"max_value": <number>,
+	"rationale": "<不超过 200 字的中文说明，解释最佳价值依据>",
+	"confidence": "<low | medium | high>"
+}`,
+			);
+		}
 	} else {
-		rules.push(
-			`${jsonRuleIndex}. 输出必须为合法 JSON，且仅包含以下字段，不要附加其他内容在 JSON 之外：
+		// 兼容/回退：单次合并估算
+		if (constrained) {
+			rules.push(
+				`${jsonRuleIndex}. 输出 JSON，包含字段: min_value (最低价值), max_value (最高价值, >= min_value), rationale (≤200字中文说明), confidence (low|medium|high)。`,
+			);
+		} else {
+			rules.push(
+				`${jsonRuleIndex}. 输出必须为合法 JSON，且仅包含以下字段，不要附加其他内容在 JSON 之外：
 {
 	"min_value": <number>,
 	"max_value": <number>,
 	"rationale": "<不超过 200 字的中文说明，解释依据和评估维度>",
 	"confidence": "<low | medium | high>"
 }`,
-		);
+			);
+		}
 	}
 
 	// 仅在图片损坏时添加损坏规则
@@ -57,7 +92,9 @@ export function buildPrompt(
 
 	const maxLimit = standard.frontmatter.max_value ?? 1000000;
 	const finalRuleIndex = rules.length + 1;
-	rules.push(`${finalRuleIndex}. 严禁输出负数或非数字。max_value 不应超过 ${maxLimit.toLocaleString()} 元。`);
+	// 仅对当前估算的边界施加上限约束；min 边界同样不应超出标准上限
+	const limitField = bound === 'min' ? 'min_value' : 'max_value';
+	rules.push(`${finalRuleIndex}. 严禁输出负数或非数字。${limitField} 不应超过 ${maxLimit.toLocaleString()} 元。`);
 
 	const systemPrompt = `你的任务是根据《估值标准》对给定的图片估值，单位为人民币元。
 
