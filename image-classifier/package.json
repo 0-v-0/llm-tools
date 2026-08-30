@@ -10,9 +10,9 @@
 	"dependencies": {
 		"image-size": "^2.0.2",
 		"minimist": "^1.2.8",
-		"openai": "^6.34.0"
+		"openai": "^6.49.0"
 	},
 	"devDependencies": {
-		"@types/node": "^25.6.0"
+		"@types/node": "^25.9.5"
 	}
 }

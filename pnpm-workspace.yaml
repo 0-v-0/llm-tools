@@ -10,3 +10,6 @@ packages:
 allowBuilds:
   blake3: true
   esbuild: true
+
+minimumReleaseAgeExclude:
+  - zod@4.5.4

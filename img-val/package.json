@@ -8,7 +8,7 @@
 	"type": "module",
 	"main": "./dist/index.js",
 	"scripts": {
-		"build": "pnpm --filter @llm-image/shared build && tsc -p tsconfig.build.json && node -e \"const fs=require('fs'),path=require('path');for(const d of ['standards/builtin','storage/migrations']){const src=path.join('src',d),dst=path.join('dist',d);fs.rmSync(dst,{recursive:true,force:true});fs.cpSync(src,dst,{recursive:true});}\"",
+		"build": "pnpm --filter @llm-image/shared build && tsc -p tsconfig.build.json && node -e \"const fs=require('fs'),path=require('path');const pairs=[['assets/standards/builtin','standards/builtin'],['src/storage/migrations','storage/migrations']];for(const [s,d] of pairs){const src=path.join(s),dst=path.join('dist',d);fs.rmSync(dst,{recursive:true,force:true});fs.cpSync(src,dst,{recursive:true});}\"",
 		"dev": "tsx src/index.ts",
 		"start": "node dist/index.js",
 		"test": "vitest run",
@@ -20,17 +20,17 @@
 		"@llm-image/file-index": "workspace:*",
 		"@llm-image/shared": "workspace:*",
 		"commander": "^15.0.0",
-		"es-toolkit": "^1.27.0",
+		"es-toolkit": "^1.52.0",
 		"exifr": "^7.1.3",
 		"gray-matter": "^4.0.3",
-		"smol-toml": "^1.4.0",
-		"zod": "^4.4.3"
+		"smol-toml": "^1.8.0",
+		"zod": "^4.5.4"
 	},
 	"devDependencies": {
-		"@types/node": "^26.2.0",
+		"@types/node": "^26.4.0",
 		"tsx": "^4.23.12",
 		"typescript": "^7.0.2",
-		"vitest": "^4.1.10"
+		"vitest": "^4.1.11"
 	},
 	"engines": {
 		"node": ">=22.0.0"

@@ -11,7 +11,7 @@ import { nowTicks, ticksToIso } from './time.js';
 
 function resolveDbPath(cliDb?: string): string {
 	if (cliDb) return cliDb;
-	const envDir = process.env['IMGDATA_DIR'];
+	const envDir = process.env.IMGDATA_DIR;
 	if (envDir) return join(envDir, 'file-index.db');
 	return join(homedir(), '.img-data', 'file-index.db');
 }
