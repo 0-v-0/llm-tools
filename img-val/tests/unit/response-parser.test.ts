@@ -20,7 +20,6 @@ describe('response-parser', () => {
 		expect(result.minValue).toBe(100);
 		expect(result.maxValue).toBe(500);
 		expect(result.rationale).toBe('测试说明');
-		expect(result.confidence).toBe('medium');
 	});
 
 	it('parses JSON in code fence', () => {
@@ -79,14 +78,12 @@ describe('response-parser (plan C split)', () => {
 		const r = parseMinResponse(text);
 		expect(r.minValue).toBe(100);
 		expect(r.rationale).toBe('客观价值低');
-		expect(r.confidence).toBe('low');
 	});
 
 	it('parseMaxResponse parses max-only JSON', () => {
 		const text = JSON.stringify({ max_value: 9000, rationale: '重大情感价值', confidence: 'high' });
 		const r = parseMaxResponse(text);
 		expect(r.maxValue).toBe(9000);
-		expect(r.confidence).toBe('high');
 	});
 
 	it('parseMinResponse throws when min_value missing', () => {

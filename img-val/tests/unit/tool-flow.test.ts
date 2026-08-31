@@ -121,7 +121,7 @@ describe('tool-flow', () => {
 			samplesMin: 1,
 			samplesMax: 1,
 			rawLlmText: null,
-			confidenceScore: null,
+			confidence: null,
 		});
 
 		const fakeProvider = new FakeProvider([
@@ -273,7 +273,7 @@ describe('tool-flow', () => {
 			samplesMin: 1,
 			samplesMax: 1,
 			rawLlmText: null,
-			confidenceScore: null,
+			confidence: null,
 		});
 		valuationRepo.insert({
 			imageHash: 'seed-b',
@@ -301,7 +301,7 @@ describe('tool-flow', () => {
 			samplesMin: 1,
 			samplesMax: 1,
 			rawLlmText: null,
-			confidenceScore: null,
+			confidence: null,
 		});
 
 		const result = await executeToolCall(

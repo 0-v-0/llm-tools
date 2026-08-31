@@ -46,7 +46,7 @@ function makeInsert(overrides: Partial<ValuationInsert> = {}): ValuationInsert {
 		samplesMin: 1,
 		samplesMax: 1,
 		rawLlmText: null,
-		confidenceScore: null,
+		confidence: null,
 		...overrides,
 	};
 }
@@ -61,7 +61,7 @@ describe('storage-repository', () => {
 	});
 
 	it('inserts and retrieves by id', () => {
-		const id = valuationRepo.insert(makeInsert({ confidenceScore: 0.42 }));
+		const id = valuationRepo.insert(makeInsert({ confidence: 0.42 }));
 		expect(id).toBeGreaterThan(0);
 
 		const record = valuationRepo.getById(id);
@@ -70,8 +70,8 @@ describe('storage-repository', () => {
 		expect(record?.minValue).toBe(100);
 		expect(record?.maxValue).toBe(500);
 		expect(record?.description).toBe('一张风景照片');
-		// confidence_score 列写入与读回归，验证数值化置信度落库
-		expect(record?.confidenceScore).toBeCloseTo(0.42, 5);
+		// confidence_score 列写入与读回归，验证浮点置信度落库
+		expect(record?.confidence).toBeCloseTo(0.42, 5);
 	});
 
 	it('retrieves by hash', () => {

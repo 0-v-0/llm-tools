@@ -26,7 +26,7 @@ function rowToRecord(row: Record<string, unknown>): ValuationRecord {
 		outputTokens: (row.output_tokens as number | null) ?? null,
 		minLogprob: (row.min_logprob as number | null) ?? null,
 		maxLogprob: (row.max_logprob as number | null) ?? null,
-		confidenceScore: (row.confidence_score as number | null) ?? null,
+		confidence: (row.confidence_score as number | null) ?? null,
 		samplesMin: (row.samples_min as number | null) ?? 1,
 		samplesMax: (row.samples_max as number | null) ?? 1,
 		valuedAt: row.valued_at as string,

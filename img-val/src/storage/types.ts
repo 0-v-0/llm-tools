@@ -1,6 +1,7 @@
 import type { ImageFormat } from '@llm-image/shared';
 export type { ImageFormat };
-export type Confidence = 'low' | 'medium' | 'high';
+/** 连续置信度浮点数，由聚合 logprob 经 exp 派生（值域 (0,1]，越大越自信）；缺失为 null。 */
+export type Confidence = number;
 
 export interface ValuationRecord {
 	id: number;
@@ -26,7 +27,7 @@ export interface ValuationRecord {
 	outputTokens: number | null;
 	minLogprob: number | null;
 	maxLogprob: number | null;
-	confidenceScore: number | null;
+	confidence: number | null;
 	samplesMin: number;
 	samplesMax: number;
 	valuedAt: string;
@@ -65,7 +66,7 @@ export interface ValuationInsert {
 	outputTokens: number | null;
 	minLogprob: number | null;
 	maxLogprob: number | null;
-	confidenceScore: number | null;
+	confidence: number | null;
 	samplesMin: number;
 	samplesMax: number;
 	rawLlmText: string | null;
