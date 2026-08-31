@@ -57,7 +57,7 @@ function makeInsert(overrides: Partial<ValuationInsert> = {}): ValuationInsert {
 		samplesMin: 1,
 		samplesMax: 1,
 		rawLlmText: null,
-		confidenceScore: null,
+		confidence: null,
 		...overrides,
 	};
 }

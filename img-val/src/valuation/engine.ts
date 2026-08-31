@@ -69,8 +69,7 @@ export interface ValuationResult {
 		uncertainty: number;
 		currency: string;
 		rationale: string;
-		confidence: Confidence;
-		confidenceScore: number | null;
+		confidence: number | null;
 		minLogprob: number | null;
 		maxLogprob: number | null;
 		samplesMin: number;
@@ -96,7 +95,7 @@ interface BoundSample {
 	value: number;
 	logprob: number | null;
 	rationale: string;
-	confidence: Confidence;
+	confidence: Confidence | null;
 	text: string;
 	toolUsed: boolean;
 	toolFallback: boolean;
@@ -108,7 +107,7 @@ export interface AggregatedBound {
 	value: number;
 	logprob: number | null;
 	rationale: string;
-	confidence: Confidence;
+	confidence: Confidence | null;
 }
 
 export async function valuate(req: ValuationRequest): Promise<ValuationResult> {
@@ -315,7 +314,7 @@ async function sampleBound(opts: {
 			value,
 			logprob,
 			rationale: parsed.rationale,
-			confidence: parsed.confidence,
+			confidence: logprob !== null ? Math.exp(logprob) : null,
 			text: flow.text,
 			toolUsed: flow.toolUsed,
 			toolFallback: flow.toolFallback,
@@ -374,7 +373,6 @@ async function decodePathBound(opts: {
 	let finalValue: number;
 	let aggLogprob: number | null;
 	let rationale: string;
-	let confidence: Confidence;
 
 	if (flow.logprobs && opts.logprobs) {
 		const cands = candidateValuesFromLogprobs(flow.logprobs, flow.text, key, { topK: opts.topK });
@@ -383,21 +381,20 @@ async function decodePathBound(opts: {
 			finalValue = res.value;
 			aggLogprob = res.logprob;
 			rationale = res.rationale ?? parsed.rationale;
-			confidence = res.confidence ?? parsed.confidence;
 		} else {
 			// top_logprobs 未覆盖数值（罕见）：退化为单点
 			finalValue = argmaxValue;
 			aggLogprob = meanLogprobForValue(flow.logprobs, flow.text, key);
 			rationale = parsed.rationale;
-			confidence = parsed.confidence;
 		}
 	} else {
 		// 未启用 logprobs 或调用降级丢失 logprobs：退化为 argmax 单点
 		finalValue = argmaxValue;
 		aggLogprob = opts.logprobs ? meanLogprobForValue(flow.logprobs, flow.text, key) : null;
 		rationale = parsed.rationale;
-		confidence = parsed.confidence;
 	}
+
+	const confidence: Confidence | null = aggLogprob !== null ? Math.exp(aggLogprob) : null;
 
 	const sample: BoundSample = {
 		value: finalValue,
@@ -416,17 +413,10 @@ async function decodePathBound(opts: {
 	};
 }
 
-const CONFIDENCE_RANK: Record<Confidence, number> = { low: 0, medium: 1, high: 2 };
-
-/** 区间可靠性受更弱的边界约束，整体 confidence 取两者中较低者。 */
-function weakerConfidence(a: Confidence, b: Confidence): Confidence {
-	return CONFIDENCE_RANK[a] <= CONFIDENCE_RANK[b] ? a : b;
-}
-
 /**
  * 将同一边界的多次采样聚合为单一估值。
  * - value：有 logprobs 时用 exp(均值logprob) 加权均值（更自信的采样权重更高），否则简单均值；
- * - confidence：先取各样本自报置信的较弱者，再用聚合 logprob 进一步下修；
+ * - confidence：由聚合 logprob 经 exp 派生（浮点数）；无 logprobs 时为 null；
  * - rationale：取 logprob 最高（最自信）样本的表述；无 logprobs 时取首个样本。
  */
 export function aggregateBound(samples: BoundSample[], bound: 'min' | 'max'): AggregatedBound {
@@ -457,16 +447,7 @@ export function aggregateBound(samples: BoundSample[], bound: 'min' | 'max'): Ag
 		aggLogprob = null;
 	}
 
-	// 各样本自报置信的较弱者
-	let conf: Confidence = 'high';
-	for (const s of samples) {
-		if (CONFIDENCE_RANK[s.confidence] < CONFIDENCE_RANK[conf]) conf = s.confidence;
-	}
-	// 用聚合 logprob 进一步下修
-	if (aggLogprob !== null) {
-		const lpConf = confidenceFromLogprob(aggLogprob);
-		if (CONFIDENCE_RANK[lpConf] < CONFIDENCE_RANK[conf]) conf = lpConf;
-	}
+	const confidence = aggLogprob !== null ? Math.exp(aggLogprob) : null;
 
 	// 取最自信（logprob 最高）样本的表述
 	let rep = samples[0]!;
@@ -478,20 +459,13 @@ export function aggregateBound(samples: BoundSample[], bound: 'min' | 'max'): Ag
 		}
 	}
 
-	return { value, logprob: aggLogprob, rationale: rep.rationale, confidence: conf };
+	return { value, logprob: aggLogprob, rationale: rep.rationale, confidence };
 }
 
 /** 合并两边界的聚合 logprob：都非 null 时取较弱者（更小），否则取存在者。 */
 function combineLogprob(a: number | null, b: number | null): number | null {
 	if (a !== null && b !== null) return Math.min(a, b);
 	return a ?? b;
-}
-
-/** 将数值 token 的平均 logprob 映射为粗粒度置信（启发式阈值，可按需调参）。 */
-function confidenceFromLogprob(meanLogprob: number): Confidence {
-	if (meanLogprob >= -1.0) return 'high';
-	if (meanLogprob >= -2.5) return 'medium';
-	return 'low';
 }
 
 function finalizeValuation(args: {
@@ -526,14 +500,10 @@ function finalizeValuation(args: {
 	}
 	const uncertainty = finalMax - finalMin;
 
-	// 连续置信分：取较弱边界的聚合 logprob（区间可靠性受更弱边界约束）经 exp 派生。
-	// 展示用枚举由该分经阈值映射；logprobs 缺失时回退到自报枚举较弱者。
+	// 置信度浮点数：取较弱边界的聚合 logprob（区间可靠性受更弱边界约束）经 exp 派生，
+	// 即 confidence = exp(合并后的聚合 logprob)；logprobs 缺失时为 null。
 	const combinedLogprob = combineLogprob(minAgg.logprob, maxAgg.logprob);
-	const confidenceScore = combinedLogprob !== null ? Math.exp(combinedLogprob) : null;
-	const confidence =
-		combinedLogprob !== null
-			? confidenceFromLogprob(combinedLogprob)
-			: weakerConfidence(minAgg.confidence, maxAgg.confidence);
+	const confidence = combinedLogprob !== null ? Math.exp(combinedLogprob) : null;
 
 	const timestamp = new Date().toISOString();
 	const notes = [...image.notes];
@@ -582,7 +552,6 @@ function finalizeValuation(args: {
 			currency: standard.frontmatter.currency,
 			rationale: valuationRationale,
 			confidence,
-			confidenceScore,
 			minLogprob: minAgg.logprob,
 			maxLogprob: maxAgg.logprob,
 			samplesMin: minSamples.length,
@@ -627,7 +596,7 @@ function finalizeValuation(args: {
 		outputTokens,
 		minLogprob: result.valuation.minLogprob,
 		maxLogprob: result.valuation.maxLogprob,
-		confidenceScore: result.valuation.confidenceScore,
+		confidence: result.valuation.confidence,
 		samplesMin: result.valuation.samplesMin,
 		samplesMax: result.valuation.samplesMax,
 		rawLlmText,

@@ -43,7 +43,10 @@ export function renderValuationCard(result: ValuationResult): string {
 	row('最低价值', formatYuan(result.valuation.minValue));
 	row('最高价值', formatYuan(result.valuation.maxValue));
 	row('不确定性', formatYuan(result.valuation.uncertainty));
-	row('置信度', result.valuation.confidence);
+	row(
+		'置信度',
+		result.valuation.confidence !== null ? result.valuation.confidence.toFixed(2) : '-',
+	);
 
 	lines.push('├' + '─'.repeat(w) + '┤');
 

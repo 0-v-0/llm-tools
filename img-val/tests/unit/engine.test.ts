@@ -53,8 +53,8 @@ function lp(text: string, logprob: number): LogprobInfo {
 	return { tokens: [{ token: text, logprob }] };
 }
 
-function minResp(value: number, rationale: string, confidence: 'low' | 'medium' | 'high', logprob: number) {
-	const text = JSON.stringify({ min_value: value, rationale, confidence });
+function minResp(value: number, rationale: string, logprob: number) {
+	const text = JSON.stringify({ min_value: value, rationale });
 	return {
 		stopReason: 'stop' as const,
 		text,
@@ -64,8 +64,8 @@ function minResp(value: number, rationale: string, confidence: 'low' | 'medium' 
 	};
 }
 
-function maxResp(value: number, rationale: string, confidence: 'low' | 'medium' | 'high', logprob: number) {
-	const text = JSON.stringify({ max_value: value, rationale, confidence });
+function maxResp(value: number, rationale: string, logprob: number) {
+	const text = JSON.stringify({ max_value: value, rationale });
 	return {
 		stopReason: 'stop' as const,
 		text,
@@ -127,8 +127,8 @@ describe('engine (plan C: two independent requests)', () => {
 
 	it('issues one min request then one max request with distinct schemas', async () => {
 		const provider = new FakeProvider([
-			minResp(100, '客观价值低', 'low', -1.0),
-			maxResp(9000, '重大情感价值', 'high', -1.5),
+			minResp(100, '客观价值低', -1.0),
+			maxResp(9000, '重大情感价值', -1.5),
 		]);
 
 		const result = await valuate({
@@ -151,9 +151,8 @@ describe('engine (plan C: two independent requests)', () => {
 		expect(result.valuation.maxValue).toBe(9000);
 		expect(result.valuation.uncertainty).toBe(8900);
 
-		// 连续置信分由较弱边界的 logprob 派生：min(-1.0, -1.5) = -1.5 → medium
-		expect(result.valuation.confidence).toBe('medium');
-		expect(result.valuation.confidenceScore).toBeCloseTo(Math.exp(-1.5), 4);
+		// 置信度浮点数由较弱边界的聚合 logprob 派生：min(-1.0, -1.5) = -1.5
+		expect(result.valuation.confidence).toBeCloseTo(Math.exp(-1.5), 4);
 
 		// token 求和
 		expect(result.llm.inputTokens).toBe(22);
@@ -172,8 +171,8 @@ describe('engine (plan C: two independent requests)', () => {
 
 	it('reconciles when max < min by reordering into a valid interval', async () => {
 		const provider = new FakeProvider([
-			minResp(800, '客观价值高', 'high', -0.4),
-			maxResp(200, '最好假设反而低', 'low', -3.0),
+			minResp(800, '客观价值高', -0.4),
+			maxResp(200, '最好假设反而低', -3.0),
 		]);
 
 		const result = await valuate({
@@ -196,10 +195,10 @@ describe('engine (plan C: two independent requests)', () => {
 	it('samples min N times, aggregates via logprobs-weighted mean, and sets temperature per sample count', async () => {
 		// min 采样 3 次：100(-0.5)、200(-1.5)、150(-1.0)；max 采样 1 次：9000(-2.0)
 		const provider = new FakeProvider([
-			minResp(100, 'r1', 'low', -0.5),
-			minResp(200, 'r2', 'low', -1.5),
-			minResp(150, 'r3', 'low', -1.0),
-			maxResp(9000, '重大情感价值', 'high', -2.0),
+			minResp(100, 'r1', -0.5),
+			minResp(200, 'r2', -1.5),
+			minResp(150, 'r3', -1.0),
+			maxResp(9000, '重大情感价值', -2.0),
 		]);
 
 		const config = {
@@ -237,9 +236,8 @@ describe('engine (plan C: two independent requests)', () => {
 		// 聚合 logprob：min 均值 (-0.5-1.5-1.0)/3 = -1.0；max -2.0
 		expect(result.valuation.minLogprob).toBeCloseTo(-1.0);
 		expect(result.valuation.maxLogprob).toBeCloseTo(-2.0);
-		// 连续置信分取较弱边界 logprob = min(-1.0, -2.0) = -2.0 → 枚举 medium
-		expect(result.valuation.confidence).toBe('medium');
-		expect(result.valuation.confidenceScore).toBeCloseTo(Math.exp(-2.0), 4);
+		// 置信度浮点数取较弱边界聚合 logprob = min(-1.0, -2.0) = -2.0
+		expect(result.valuation.confidence).toBeCloseTo(Math.exp(-2.0), 4);
 
 		// rationale 取最自信样本（logprob 最高 == -0.5 的 r1）
 		expect(result.valuation.rationale).toContain('r1');
@@ -254,12 +252,12 @@ function lpTokens(tokens: Array<{ token: string; logprob: number; topLogprobs?: 
 /** min 边界响应，数值 100 被拆成 token "10"+"0"，且两个位置各带 top-k 候选，
  *  使路径重建可枚举出 100/105/150/155 四条候选数值路径。 */
 function minRespPath(): CompleteResponse {
-	const text = `{"min_value": 100,"rationale":"r","confidence":"low"}`;
+	const text = `{"min_value": 100,"rationale":"r"}`;
 	const tokens = [
 		{ token: `{"min_value": `, logprob: -0.1 },
 		{ token: '10', logprob: -0.5, topLogprobs: [{ token: '10', logprob: -0.5 }, { token: '15', logprob: -1.5 }] },
 		{ token: '0', logprob: -1.0, topLogprobs: [{ token: '0', logprob: -1.0 }, { token: '5', logprob: -3.0 }] },
-		{ token: `,"rationale":"r","confidence":"low"}`, logprob: -0.1 },
+		{ token: `,"rationale":"r"}`, logprob: -0.1 },
 	];
 	return {
 		stopReason: 'stop' as const,
@@ -283,7 +281,7 @@ describe('engine: usePathDecoding (constrained expected-value decoding)', () => 
 		// min 边界：100(主路径) 但 top-k 提供 100/105/150/155 四条候选路径
 		const provider = new FakeProvider([
 			minRespPath(),
-			maxResp(9000, '重大情感价值', 'high', -2.0),
+			maxResp(9000, '重大情感价值', -2.0),
 		]);
 
 		const config = {
@@ -317,10 +315,9 @@ describe('engine: usePathDecoding (constrained expected-value decoding)', () => 
 		expect(result.valuation.minValue).toBeCloseTo(expValue, 0);
 		expect(result.valuation.maxValue).toBe(9000);
 
-		// 聚合 logprob ≈ -1.00（路径概率加权平均 token logprob），弱边界 -2.0 → medium
+		// 聚合 logprob ≈ -1.00（路径概率加权平均 token logprob），弱边界 -2.0
 		expect(result.valuation.minLogprob).toBeCloseTo(-1.0, 1);
-		expect(result.valuation.confidence).toBe('medium');
-		expect(result.valuation.confidenceScore).toBeCloseTo(Math.exp(-2.0), 3);
+		expect(result.valuation.confidence).toBeCloseTo(Math.exp(-2.0), 3);
 
 		// 标注区分于普通多样本聚合
 		expect(result.notes[0]).toContain('路径期望解码');
@@ -329,8 +326,8 @@ describe('engine: usePathDecoding (constrained expected-value decoding)', () => 
 	it('degrades to argmax single point when logprobs are disabled', async () => {
 		// usePathDecoding=true 但 enableLogprobs=false：不请求 top_logprobs，退化为 argmax 单点
 		const provider = new FakeProvider([
-			minResp(100, '客观价值低', 'low', -1.0),
-			maxResp(9000, '重大情感价值', 'high', -1.5),
+			minResp(100, '客观价值低', -1.0),
+			maxResp(9000, '重大情感价值', -1.5),
 		]);
 
 		const config = {
@@ -356,7 +353,7 @@ describe('engine: usePathDecoding (constrained expected-value decoding)', () => 
 		expect(result.valuation.minValue).toBe(100);
 		expect(result.valuation.maxValue).toBe(9000);
 		expect(result.valuation.samplesMin).toBe(1);
-		expect(result.valuation.confidenceScore).toBeNull();
+		expect(result.valuation.confidence).toBeNull();
 		expect(result.notes[0]).toContain('路径期望解码');
 	});
 });

@@ -1,14 +1,12 @@
 import type { ResponseSchema, ToolDef, LogprobInfo } from '@llm-image/shared';
 import { ParseError } from '@llm-image/shared';
 import { z } from 'zod';
-import type { Confidence } from '../storage/types.js';
 
 const valuationResponseSchema = z
 	.object({
 		min_value: z.number().nonnegative(),
 		max_value: z.number().nonnegative(),
 		rationale: z.string(),
-		confidence: z.enum(['low', 'medium', 'high']),
 	})
 	.refine((d) => d.max_value >= d.min_value, {
 		message: 'max_value 必须 >= min_value',
@@ -24,9 +22,8 @@ export const VALUATION_RESPONSE_SCHEMA: Record<string, unknown> = {
 		min_value: { type: 'number' },
 		max_value: { type: 'number' },
 		rationale: { type: 'string', description: '不超过 200 字的中文说明' },
-		confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
 	},
-	required: ['min_value', 'max_value', 'rationale', 'confidence'],
+	required: ['min_value', 'max_value', 'rationale'],
 	additionalProperties: false,
 };
 
@@ -64,19 +61,17 @@ export const SUBMIT_VALUATION_TOOL: ToolDef = submitToolFor(VALUATION_RESPONSE_F
 //
 // min_value (客观假设) and max_value (最好假设) are estimated in two separate
 // requests so that the upper bound is not anchored on the just-generated lower
-// bound. Each request returns only its own bound + rationale + confidence.
+// bound. Each request returns only its own bound + rationale.
 // ---------------------------------------------------------------------------
 
 const minValueSchema = z.object({
 	min_value: z.number().nonnegative(),
 	rationale: z.string(),
-	confidence: z.enum(['low', 'medium', 'high']),
 });
 
 const maxValueSchema = z.object({
 	max_value: z.number().nonnegative(),
 	rationale: z.string(),
-	confidence: z.enum(['low', 'medium', 'high']),
 });
 
 export const MIN_VALUE_RESPONSE_SCHEMA: Record<string, unknown> = {
@@ -84,9 +79,8 @@ export const MIN_VALUE_RESPONSE_SCHEMA: Record<string, unknown> = {
 	properties: {
 		min_value: { type: 'number' },
 		rationale: { type: 'string', description: '不超过 200 字的中文说明' },
-		confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
 	},
-	required: ['min_value', 'rationale', 'confidence'],
+	required: ['min_value', 'rationale'],
 	additionalProperties: false,
 };
 
@@ -95,9 +89,8 @@ export const MAX_VALUE_RESPONSE_SCHEMA: Record<string, unknown> = {
 	properties: {
 		max_value: { type: 'number' },
 		rationale: { type: 'string', description: '不超过 200 字的中文说明' },
-		confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
 	},
-	required: ['max_value', 'rationale', 'confidence'],
+	required: ['max_value', 'rationale'],
 	additionalProperties: false,
 };
 
@@ -115,19 +108,16 @@ export interface ParsedValuation {
 	minValue: number;
 	maxValue: number;
 	rationale: string;
-	confidence: Confidence;
 }
 
 export interface ParsedMinValue {
 	minValue: number;
 	rationale: string;
-	confidence: Confidence;
 }
 
 export interface ParsedMaxValue {
 	maxValue: number;
 	rationale: string;
-	confidence: Confidence;
 }
 
 /** Parse an LLM response that contains only min_value. Mirrors parseValuationResponse. */
@@ -173,7 +163,6 @@ function validateMinValue(data: Record<string, unknown>): ParsedMinValue {
 	return {
 		minValue: result.data.min_value,
 		rationale: result.data.rationale,
-		confidence: result.data.confidence,
 	};
 }
 
@@ -186,7 +175,6 @@ function validateMaxValue(data: Record<string, unknown>): ParsedMaxValue {
 	return {
 		maxValue: result.data.max_value,
 		rationale: result.data.rationale,
-		confidence: result.data.confidence,
 	};
 }
 
@@ -285,6 +273,5 @@ function validateValuation(data: Record<string, unknown>): ParsedValuation {
 		minValue: result.data.min_value,
 		maxValue: result.data.max_value,
 		rationale: result.data.rationale,
-		confidence: result.data.confidence,
 	};
 }

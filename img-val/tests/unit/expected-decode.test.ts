@@ -25,9 +25,9 @@ function createTestDb() {
 //   = [0.6065, 0.2231, 0.3679]，归一化和 = 1.1975
 // 期望 = (0.6065*100 + 0.2231*200 + 0.3679*150) / 1.1975 ≈ 133.98
 const CANDIDATES: Candidate[] = [
-	{ value: 100, tokenLogprobs: [-0.5], confidence: 'low', rationale: 'r1' },
-	{ value: 200, tokenLogprobs: [-1.5], confidence: 'low', rationale: 'r2' },
-	{ value: 150, tokenLogprobs: [-1.0], confidence: 'low', rationale: 'r3' },
+	{ value: 100, tokenLogprobs: [-0.5], confidence: Math.exp(-0.5), rationale: 'r1' },
+	{ value: 200, tokenLogprobs: [-1.5], confidence: Math.exp(-1.5), rationale: 'r2' },
+	{ value: 150, tokenLogprobs: [-1.0], confidence: Math.exp(-1.0), rationale: 'r3' },
 ];
 
 describe('expectationDecode (constrained expected-value decoding)', () => {
@@ -41,7 +41,7 @@ describe('expectationDecode (constrained expected-value decoding)', () => {
 		expect(r.discardedPaths).toBe(0);
 		// 最自信候选（路径概率最高）= 100(p=-0.5)
 		expect(r.rationale).toBe('r1');
-		expect(r.confidence).toBe('low');
+		expect(r.confidence).toBeCloseTo(Math.exp(-0.5), 6);
 	});
 
 	it('applies validity mask: drops negative and non-numeric paths', () => {
@@ -66,7 +66,7 @@ describe('expectationDecode (constrained expected-value decoding)', () => {
 			value: c.value,
 			logprob: c.tokenLogprobs[0]!,
 			rationale: '',
-			confidence: 'low' as const,
+			confidence: null,
 			text: '',
 			toolUsed: false,
 			toolFallback: false,
