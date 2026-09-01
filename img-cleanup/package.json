@@ -1,0 +1,36 @@
+{
+	"name": "img-cleanup",
+	"version": "0.1.0",
+	"description": "TypeScript CLI for LLM-based image cleanup — batch-compare images and move the least valuable",
+	"bin": {
+		"imgcleanup": "./dist/index.js"
+	},
+	"type": "module",
+	"main": "./dist/index.js",
+	"scripts": {
+		"build": "pnpm --filter @llm-image/shared build && tsc -p tsconfig.build.json",
+		"dev": "tsx src/index.ts",
+		"start": "node dist/index.js",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@llm-image/file-index": "workspace:*",
+		"@llm-image/shared": "workspace:*",
+		"commander": "^15.0.0",
+		"es-toolkit": "^1.52.0",
+		"smol-toml": "^1.8.0",
+		"zod": "^4.5.4"
+	},
+	"devDependencies": {
+		"@types/node": "^26.4.0",
+		"tsx": "^4.23.13",
+		"typescript": "^7.0.2",
+		"vitest": "^4.1.11"
+	},
+	"engines": {
+		"node": ">=22.0.0"
+	}
+}
