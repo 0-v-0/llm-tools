@@ -43,9 +43,17 @@ export function encodeFileUrl(url: string): string {
 	}
 }
 
-/** Convert a (possibly decoded) file URL back to a local path. */
+/**
+ * Convert a (possibly decoded) file URL back to a local path.
+ *
+ * The canonical stored form is percent-DECODED (see toFileUrl), so it can
+ * contain a literal '%' (e.g. '97%.png') that breaks decodeURIComponent.
+ * Re-escape bare '%' not followed by two hex digits before parsing; valid
+ * escapes (%20 etc.) decode normally.
+ */
 export function fileUrlToPath(url: string): string {
-	return fileURLToPath(encodeFileUrl(url));
+	const normalized = url.replace(/%(?![0-9A-Fa-f]{2})/g, '%25');
+	return fileURLToPath(normalized);
 }
 
 /** Normalize a URL to its canonical form for storage. */

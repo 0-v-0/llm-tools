@@ -4,8 +4,8 @@ packages:
   - "image-classifier"
   - "img-search"
   - "img-val"
+  - "img-cleanup"
   - "tag-translator"
-  - "file-index"
 
 allowBuilds:
   blake3: true
