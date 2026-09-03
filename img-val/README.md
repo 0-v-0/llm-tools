@@ -48,25 +48,38 @@ node img-val/dist/index.js standards list
 
 ## 环境变量
 
-仅 LLM 提供商与数据库目录通过环境变量配置：
+LLM 提供商与数据库目录通过环境变量配置：
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `LLM_PROVIDER` | `openai` | LLM 提供商 (`openai` 或 `anthropic`) |
 | `OPENAI_API_BASE` | `https://api.openai.com/v1` | OpenAI 兼容 API 地址 |
 | `OPENAI_API_KEY` | — | OpenAI API 密钥 |
 | `OPENAI_MODEL` | `gpt-4o` | 模型名称 |
-| `OPENAI_VISION_DETAIL` | `high` | Vision 详情级别 |
 | `ANTHROPIC_API_KEY` | — | Anthropic API 密钥 |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-5-20250929` | 模型名称 |
 | `IMGVAL_DB_DIR` | `~/.imgval` | 数据库目录（配置文件也存放于此） |
 
 ## 配置文件
 
-行为调优参数统一放在配置文件 `~/.imgval/config.toml`（若设置了 `IMGVAL_DB_DIR`，则为 `<IMGVAL_DB_DIR>/config.toml`）。文件不存在时全部使用默认值；配置为唯一来源，无同名环境变量覆盖。
+行为调优参数与 LLM provider 配置统一放在配置文件 `~/.imgval/config.toml`（若设置了 `IMGVAL_DB_DIR`，则为 `<IMGVAL_DB_DIR>/config.toml`）。文件不存在时全部使用默认值；`[llm]` 段中已设置的 provider 字段优先于同名环境变量，未设置的字段回退环境变量；其余调优参数为唯一来源，无同名环境变量覆盖。
 
 ```toml
 # ~/.imgval/config.toml
+
+[llm]
+provider = "openai"   # 可选；未设置时按已配置的 apiKey 自动选择（双方都在→报错，都没有→报错）
+
+[llm.openai]
+apiBase = "https://api.openai.com/v1"   # 缺失时回退 OPENAI_API_BASE 环境变量
+apiKey = "sk-..."                        # 缺失时回退 OPENAI_API_KEY 环境变量
+model = "gpt-4o"                         # 缺失时回退 OPENAI_MODEL 环境变量
+visionDetail = "high"                    # 仅配置（默认 high，无环境变量）
+
+[llm.anthropic]
+apiKey = "sk-ant-..."                    # 缺失时回退 ANTHROPIC_API_KEY 环境变量
+model = "claude-sonnet-4-5-20250929"     # 缺失时回退 ANTHROPIC_MODEL 环境变量
+apiBase = ""                             # 缺失时回退 ANTHROPIC_API_BASE 环境变量（可选）
+
 standardsDir = "~/.imgval/standards"   # 估值标准目录
 storeRaw = true                         # 是否存储 LLM 原始回复文本
 maxImageDimension = 1568                # 送入 LLM 前最长边像素限制

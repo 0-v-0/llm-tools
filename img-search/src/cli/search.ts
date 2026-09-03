@@ -1,17 +1,51 @@
-import { AppError, createProvider } from '@llm-image/shared';
+import { AppError, createProvider, resolveProviderConfig } from '@llm-image/shared';
 import { Command } from 'commander';
 import { stdin, stdout, stderr } from 'node:process';
 import { createInterface } from 'readline/promises';
-import type { ParsedQuestion } from '../search/question-parser.js';
-import type { SessionConfig } from '../search/session.js';
-import type { SearchResult } from '../search/session.js';
-import { loadConfig } from '../config/config.js';
+import { loadConfig, type AppConfig } from '../config/config.js';
 import { loadEnv } from '../config/env.js';
 import { bootstrap } from '../config/paths.js';
 import { createEmbeddingProvider } from '../embedding/factory.js';
+import type { SearchOptions } from '../search/algorithm.js';
 import { SearchAlgorithm } from '../search/algorithm.js';
-import { getDb } from '../storage/db.js';
+import type { ParsedQuestion } from '../search/question-parser.js';
+import type { SessionConfig, SearchResult } from '../search/session.js';
+import { closeDb, getDb } from '../storage/db.js';
 import { QdrantStore } from '../storage/qdrant.js';
+import { sanitizeForTerminal } from '../util/sanitize.js';
+
+interface ParsedAnswer {
+	value: number | 'unknown';
+	/** 输入无法解析为 0-1 的数值或 unknown 时为 true。 */
+	invalid: boolean;
+}
+
+/** 将用户输入解析为 0-1 的数值或 unknown；无法解析时标记 invalid。 */
+function parseAnswer(raw: string): ParsedAnswer {
+	const answer = raw.trim().toLowerCase();
+	if (answer === 'unknown' || answer === '?') {
+		return { value: 'unknown', invalid: false };
+	}
+	const num = /^\d*\.?\d+$/.test(answer) ? parseFloat(answer) : Number.NaN;
+	if (Number.isNaN(num) || num < 0 || num > 1) {
+		return { value: 'unknown', invalid: true };
+	}
+	return { value: num, invalid: false };
+}
+
+/** 从应用配置构造搜索会话参数。 */
+function buildSessionConfig(config: AppConfig): SessionConfig {
+	return {
+		beamSize: config.beamSize,
+		topKQuestions: config.topKQuestions,
+		maxRounds: config.maxRounds,
+		minRounds: config.minRounds,
+		igThreshold: config.igThreshold,
+		alpha: config.alpha,
+		lambda: config.lambda,
+		candidateQuestions: config.candidateQuestions,
+	};
+}
 
 export const searchCommand = new Command('search')
 	.description('Interactive image search via Bayesian questioning')
@@ -21,10 +55,10 @@ export const searchCommand = new Command('search')
 		try {
 			const env = loadEnv();
 			const config = loadConfig();
-			bootstrap();
+			bootstrap(env.IMGDATA_DIR);
 			getDb();
 
-			const llm = createProvider(env);
+			const llm = createProvider(resolveProviderConfig(config.llm, env));
 			const embedding = createEmbeddingProvider(env, config);
 			const qdrant = new QdrantStore(
 				env.QDRANT_URL,
@@ -35,59 +69,47 @@ export const searchCommand = new Command('search')
 
 			const algorithm = new SearchAlgorithm({ llm, embedding, qdrant });
 
-			const sessionConfig: SessionConfig = {
-				beamSize: config.beamSize,
-				maxRounds: config.maxRounds,
-				minRounds: config.minRounds,
-				igThreshold: config.igThreshold,
-				alpha: config.alpha,
-				lambda: config.lambda,
-				candidateQuestions: config.candidateQuestions,
-			};
-
-			const searchOptions: Parameters<typeof algorithm.initialize>[1] = {};
-			if (opts.hint !== undefined) {
-				searchOptions.hint = opts.hint;
-			}
-			await algorithm.initialize(sessionConfig, searchOptions);
+			const searchOptions: SearchOptions = opts.hint !== undefined ? { hint: opts.hint } : {};
+			await algorithm.initialize(buildSessionConfig(config), searchOptions);
 
 			const rl = createInterface({ input: stdin, output: stdout });
 
 			const onQuestion = (question: ParsedQuestion, candidates: SearchResult[]) => {
 				stdout.write(`\n[Round ${algorithm.getRound()}] Top candidates:\n`);
 				for (const [i, c] of candidates.entries()) {
-					stdout.write(`  ${i + 1}. ${c.description} (${(c.probability * 100).toFixed(1)}%)\n`);
+					stdout.write(
+						`  ${i + 1}. ${sanitizeForTerminal(c.description)} (${(c.probability * 100).toFixed(1)}%)\n`,
+					);
 				}
 			};
 
-			while (!algorithm.isTerminated()) {
-				const question = await algorithm.nextQuestion({ onQuestion });
-				if (!question) {
-					break;
-				}
-
-				stdout.write(`\nQuestion: ${question.question}\n`);
-				stdout.write(`Rationale: ${question.rationale}\n`);
-				const answerStr = await rl.question('Your answer (0-1 or "unknown"): ');
-				const answer = answerStr.trim().toLowerCase();
-
-				let parsedAnswer: number | 'unknown';
-				if (answer === 'unknown' || answer === '?') {
-					parsedAnswer = 'unknown';
-				} else {
-					const num = parseFloat(answer);
-					if (Number.isNaN(num) || num < 0 || num > 1) {
-						stdout.write('Invalid answer, treating as unknown\n');
-						parsedAnswer = 'unknown';
-					} else {
-						parsedAnswer = num;
+			try {
+				while (!algorithm.isTerminated()) {
+					const question = await algorithm.nextQuestion({ onQuestion });
+					if (!question) {
+						break;
 					}
+
+					stdout.write(`\nQuestion: ${sanitizeForTerminal(question.question)}\n`);
+					stdout.write(`Rationale: ${sanitizeForTerminal(question.rationale)}\n`);
+					let answerStr: string;
+					try {
+						answerStr = await rl.question('Your answer (0-1 or "unknown"): ');
+					} catch {
+						// stdin EOF/中断（如 Ctrl+D）：视为结束搜索，仍输出当前结果
+						break;
+					}
+
+					const { value: parsedAnswer, invalid } = parseAnswer(answerStr);
+					if (invalid) {
+						stdout.write('Invalid answer, treating as unknown\n');
+					}
+					await algorithm.processAnswer(question, parsedAnswer);
 				}
-
-				await algorithm.processAnswer(question, parsedAnswer);
+			} finally {
+				rl.close();
+				closeDb();
 			}
-
-			rl.close();
 
 			const results = algorithm.getResults(5);
 			const reason = algorithm.getTerminationReason();
@@ -99,7 +121,7 @@ export const searchCommand = new Command('search')
 				stdout.write(`Termination reason: ${reason ?? 'unknown'}\n\n`);
 				stdout.write(`Top ${results.length} results:\n`);
 				for (const [i, r] of results.entries()) {
-					stdout.write(`  ${i + 1}. ${r.description}\n`);
+					stdout.write(`  ${i + 1}. ${sanitizeForTerminal(r.description)}\n`);
 					stdout.write(`     Probability: ${(r.probability * 100).toFixed(1)}%\n`);
 					if (r.sourcePath) {
 						stdout.write(`     Path: ${r.sourcePath}\n`);

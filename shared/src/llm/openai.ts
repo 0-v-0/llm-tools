@@ -112,6 +112,7 @@ function toOpenAIMessages(
 
 export class OpenAIProvider implements LLMProvider {
 	readonly model: string;
+	readonly provider = 'openai' as const;
 	private client: OpenAI;
 	private visionDetail: 'low' | 'high' | 'auto';
 

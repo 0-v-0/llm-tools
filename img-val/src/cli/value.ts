@@ -1,4 +1,4 @@
-import { processImage, createProvider, AppError } from '@llm-image/shared';
+import { processImage, createProvider, resolveProviderConfig, AppError } from '@llm-image/shared';
 import { Command } from 'commander';
 import { limitAsync } from 'es-toolkit';
 import { readdir, stat } from 'node:fs/promises';
@@ -84,7 +84,7 @@ export const valueCommand = new Command('value')
 
 				const enableTools = opts.tools !== false && config.enableTools;
 				const standard = await resolveStandard(opts.standard, config.standardsDir);
-				const provider = createProvider(env);
+				const provider = createProvider(resolveProviderConfig(config.llm, env));
 
 				const absPath = isAbsolute(pathArg) ? pathArg : join(process.cwd(), pathArg);
 				const s = await stat(absPath);
@@ -118,7 +118,7 @@ export const valueCommand = new Command('value')
 								image,
 								standard,
 								provider,
-								env,
+							env,
 								config,
 								enableTools,
 							});
@@ -159,11 +159,11 @@ export const valueCommand = new Command('value')
 						}
 						console.log(renderBatchTable(results));
 						if (errors.length > 0) {
-							console.error(`\n失败 ${errors.length} 张:`);
-							for (const e of errors) {
-								console.error(`  ${e.path}: ${e.error}`);
-							}
+						console.error(`\n失败 ${errors.length} 张:`);
+						for (const e of errors) {
+						console.error(`  ${e.path}: ${e.error}`);
 						}
+					}
 					}
 
 					if (errors.length > 0 && results.length === 0) {
@@ -177,7 +177,7 @@ export const valueCommand = new Command('value')
 						image,
 						standard,
 						provider,
-						env,
+							env,
 						config,
 						enableTools,
 					});
