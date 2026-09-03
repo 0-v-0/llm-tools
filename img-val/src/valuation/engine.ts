@@ -5,7 +5,6 @@ import type {
 	UsageInfo,
 	ResponseSchema,
 } from '@llm-image/shared';
-import type { EnvConfig } from '../config/env.js';
 import type { AppConfig } from '../config/config.js';
 import type { Standard } from '../standards/parser.js';
 import type { Confidence, ImageFormat } from '../storage/types.js';
@@ -47,7 +46,6 @@ export interface ValuationRequest {
 	image: ProcessedImage;
 	standard: Standard;
 	provider: LLMProvider;
-	env: EnvConfig;
 	config: AppConfig;
 	enableTools: boolean;
 }
@@ -111,7 +109,7 @@ export interface AggregatedBound {
 }
 
 export async function valuate(req: ValuationRequest): Promise<ValuationResult> {
-	const { image, standard, provider, env, config, enableTools } = req;
+	const { image, standard, provider, config, enableTools } = req;
 
 	const imageHash = image.hash;
 
@@ -221,7 +219,7 @@ export async function valuate(req: ValuationRequest): Promise<ValuationResult> {
 			maxAgg,
 			minSamples,
 			maxSamples,
-			llmModel: `${env.LLM_PROVIDER}/${provider.model}`,
+			llmModel: `${provider.provider}/${provider.model}`,
 		});
 	} catch (e) {
 		// 记录失败的完整请求（仅当 failLogDir 配置时）
@@ -244,7 +242,7 @@ export async function valuate(req: ValuationRequest): Promise<ValuationResult> {
 				},
 				standardName: standard.frontmatter.name,
 				standardVersion: standard.contentHash,
-				model: `${env.LLM_PROVIDER}/${provider.model}`,
+				model: `${provider.provider}/${provider.model}`,
 				enableTools,
 				// 记录最后一个（上界）请求作为失败代表；两请求共享标准与图片
 				systemPrompt: maxPrompt.systemPrompt,

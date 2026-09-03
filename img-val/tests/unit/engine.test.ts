@@ -28,6 +28,7 @@ function createTestDb() {
 /** Fake provider that returns scripted responses in order. */
 class FakeProvider implements LLMProvider {
 	readonly model = 'fake-model';
+	readonly provider = 'openai' as const;
 	private responses: CompleteResponse[];
 	readonly requests: CompleteRequest[] = [];
 	private callCount = 0;
@@ -100,7 +101,6 @@ const mockImage = {
 	notes: [],
 };
 
-const mockEnv = { LLM_PROVIDER: 'openai' } as unknown as import('../../src/config/env.js').EnvConfig;
 
 /** 默认配置：min/max 各采样 1 次（确定性）。 */
 const baseConfig = {
@@ -136,7 +136,6 @@ describe('engine (plan C: two independent requests)', () => {
 			image: mockImage,
 			standard: mockStandard,
 			provider,
-			env: mockEnv,
 			config: baseConfig,
 			enableTools: false,
 		});
@@ -180,7 +179,6 @@ describe('engine (plan C: two independent requests)', () => {
 			image: mockImage,
 			standard: mockStandard,
 			provider,
-			env: mockEnv,
 			config: baseConfig,
 			enableTools: false,
 		});
@@ -212,7 +210,6 @@ describe('engine (plan C: two independent requests)', () => {
 			image: mockImage,
 			standard: mockStandard,
 			provider,
-			env: mockEnv,
 			config,
 			enableTools: false,
 		});
@@ -295,7 +292,6 @@ describe('engine: usePathDecoding (constrained expected-value decoding)', () => 
 			image: mockImage,
 			standard: mockStandard,
 			provider,
-			env: mockEnv,
 			config,
 			enableTools: false,
 		});
@@ -341,7 +337,6 @@ describe('engine: usePathDecoding (constrained expected-value decoding)', () => 
 			image: mockImage,
 			standard: mockStandard,
 			provider,
-			env: mockEnv,
 			config,
 			enableTools: false,
 		});

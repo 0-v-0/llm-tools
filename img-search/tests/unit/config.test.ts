@@ -69,4 +69,32 @@ describe('loadConfig', () => {
 		writeFileSync(join(dir, 'imgsearch.toml'), 'lambda = "abc"\n');
 		expect(() => loadConfig()).toThrow(/配置文件校验失败/);
 	});
+
+	it('llm 段默认值：visionDetail=low，其余字段未设置（交由环境变量回退）', () => {
+		const config = loadConfig();
+		expect(config.llm.openai.visionDetail).toBe('low');
+		expect(config.llm.openai.apiBase).toBeUndefined();
+		expect(config.llm.openai.model).toBeUndefined();
+		expect(config.llm.anthropic).toBeUndefined();
+	});
+
+	it('llm.openai 段从 TOML 读取并覆盖默认 visionDetail', () => {
+		writeFileSync(
+			join(dir, 'imgsearch.toml'),
+			'[llm.openai]\napiBase = "https://my.proxy/v1"\nmodel = "gpt-4o-mini"\nvisionDetail = "high"\n',
+		);
+		const config = loadConfig();
+		expect(config.llm.openai.apiBase).toBe('https://my.proxy/v1');
+		expect(config.llm.openai.model).toBe('gpt-4o-mini');
+		expect(config.llm.openai.visionDetail).toBe('high');
+	});
+
+	it('llm.openai 部分字段：已设置取配置，缺失保持 undefined（环境变量回退）', () => {
+		writeFileSync(join(dir, 'imgsearch.toml'), '[llm.openai]\napiBase = "https://my.proxy/v1"\n');
+		const config = loadConfig();
+		expect(config.llm.openai.apiBase).toBe('https://my.proxy/v1');
+		expect(config.llm.openai.model).toBeUndefined();
+		// visionDetail 仍取默认值（配置唯一来源，无环境变量回退）
+		expect(config.llm.openai.visionDetail).toBe('low');
+	});
 });

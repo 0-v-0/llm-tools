@@ -1,10 +1,11 @@
-import { ConfigError } from '@llm-image/shared';
+import { ConfigError, createLlmConfigSchema } from '@llm-image/shared';
 import { existsSync, readFileSync } from 'node:fs';
 import { parse } from 'smol-toml';
 import { z } from 'zod';
 import { getConfigPath } from './paths.js';
 
 const configSchema = z.object({
+	llm: createLlmConfigSchema('low'),
 	// Algorithm parameters
 	alpha: z.number().min(0).max(1).default(0.5),
 	lambda: z.number().positive().default(8),

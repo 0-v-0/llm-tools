@@ -1,4 +1,4 @@
-import { processImage, createProvider, AppError } from '@llm-image/shared';
+import { processImage, createProvider, resolveProviderConfig, AppError } from '@llm-image/shared';
 import { Command } from 'commander';
 import { limitAsync } from 'es-toolkit';
 import { stat } from 'node:fs/promises';
@@ -39,7 +39,7 @@ export const importCommand = new Command('import')
 			},
 		) => {
 			try {
-const env = loadEnv();
+				const env = loadEnv();
 			const config = loadConfig();
 			bootstrap(env.IMGDATA_DIR);
 
@@ -68,7 +68,7 @@ const env = loadEnv();
 				}
 
 				getDb();
-				const provider = createProvider(env);
+				const provider = createProvider(resolveProviderConfig(config.llm, env));
 				const embeddingProvider = createEmbeddingProvider(env, config);
 				const qdrant = new QdrantStore(
 					env.QDRANT_URL,
@@ -167,10 +167,10 @@ const env = loadEnv();
 					});
 
 						if (opts.verbose) {
-							console.error(`[debug] indexed: ${imagePath}`);
-						}
+						console.error(`[debug] indexed: ${imagePath}`);
+					}
 
-						return { path: imagePath, status: 'success' };
+					return { path: imagePath, status: 'success' };
 					} catch (e) {
 						const error = e instanceof Error ? e.message : String(e);
 						console.error(`[error] ${imagePath}: ${error}`);

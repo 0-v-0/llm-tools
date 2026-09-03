@@ -103,5 +103,6 @@ export interface CompleteResponse {
 
 export interface LLMProvider {
 	readonly model: string;
+	readonly provider: 'openai' | 'anthropic';
 	complete(req: CompleteRequest): Promise<CompleteResponse>;
 }

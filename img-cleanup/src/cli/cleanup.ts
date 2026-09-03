@@ -1,4 +1,4 @@
-import { AppError, createProvider } from '@llm-image/shared';
+import { AppError, createProvider, resolveProviderConfig } from '@llm-image/shared';
 import { Command } from 'commander';
 import { loadEnv } from '../config/env.js';
 import { loadConfig } from '../config/config.js';
@@ -90,7 +90,7 @@ export const cleanupCommand = new Command('cleanup')
 				}
 
 				// Create LLM provider
-				const provider = createProvider(env);
+				const provider = createProvider(resolveProviderConfig(config.llm, env));
 
 				// Progress callback
 				const onProgress = verbose

@@ -141,6 +141,7 @@ function toAnthropicTools(tools?: ToolDef[]): Anthropic.Messages.Tool[] | undefi
 
 export class AnthropicProvider implements LLMProvider {
 	readonly model: string;
+	readonly provider = 'anthropic' as const;
 	private client: Anthropic;
 
 	constructor(config: AnthropicProviderConfig) {

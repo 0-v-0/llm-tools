@@ -1,4 +1,4 @@
-import { processImage, createProvider, AppError } from '@llm-image/shared';
+import { processImage, createProvider, resolveProviderConfig, AppError } from '@llm-image/shared';
 import { Command } from 'commander';
 import { limitAsync } from 'es-toolkit';
 import { readdir, stat } from 'node:fs/promises';
@@ -85,7 +85,7 @@ export const valueCommand = new Command('value')
 
 				const enableTools = opts.tools !== false && config.enableTools;
 				const standard = await resolveStandard(opts.standard, config.standardsDir);
-				const provider = createProvider(env);
+				const provider = createProvider(resolveProviderConfig(config.llm, env));
 
 				const absPath = isAbsolute(pathArg) ? pathArg : join(process.cwd(), pathArg);
 				const s = await stat(absPath);
@@ -107,7 +107,7 @@ export const valueCommand = new Command('value')
 							const encodedUrl = pathToFileURL(imagePath).href;
 							const image = await processImage(encodedUrl, config.maxImageDimension);
 
-if (
+							if (
 							opts.mode !== 'full' &&
 							existsByHashAndStandard(image.hash, standard.frontmatter.name)
 						) {
@@ -126,7 +126,6 @@ if (
 								image,
 								standard,
 								provider,
-								env,
 								config,
 								enableTools,
 							});
@@ -160,24 +159,24 @@ if (
 					if (isJsonFormat(opts.format)) {
 						console.log(renderJsonArray(results));
 					} else {
-if (opts.mode === 'sync' && skipped.length > 0) {
+						if (opts.mode === 'sync' && skipped.length > 0) {
 						console.log(`跳过并更新 url 已估值 ${skipped.length} 张:`);
 						for (const s of skipped) {
-							console.log(`  ${s.path}`);
+						console.log(`  ${s.path}`);
 						}
 					} else if (opts.mode === 'skip' && skipped.length > 0) {
 						console.log(`跳过已估值 ${skipped.length} 张:`);
 						for (const s of skipped) {
-							console.log(`  ${s.path}`);
+						console.log(`  ${s.path}`);
 						}
 					}
 						console.log(renderBatchTable(results));
 						if (errors.length > 0) {
-							console.error(`\n失败 ${errors.length} 张:`);
-							for (const e of errors) {
-								console.error(`  ${e.path}: ${e.error}`);
-							}
+						console.error(`\n失败 ${errors.length} 张:`);
+						for (const e of errors) {
+						console.error(`  ${e.path}: ${e.error}`);
 						}
+					}
 					}
 
 					if (errors.length > 0 && results.length === 0) {
@@ -191,7 +190,6 @@ if (opts.mode === 'sync' && skipped.length > 0) {
 						image,
 						standard,
 						provider,
-						env,
 						config,
 						enableTools,
 					});

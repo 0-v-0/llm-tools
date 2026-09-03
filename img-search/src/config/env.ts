@@ -2,13 +2,10 @@ import { ConfigError } from '@llm-image/shared';
 import { z } from 'zod';
 
 const envSchema = z.object({
-	// LLM provider (for question generation) — must satisfy ProviderConfig
-	LLM_PROVIDER: z.enum(['openai', 'anthropic']).default('openai'),
 
 	OPENAI_API_BASE: z.string().default('https://api.openai.com/v1'),
 	OPENAI_API_KEY: z.string().optional(),
 	OPENAI_MODEL: z.string().default('gpt-4o'),
-	OPENAI_VISION_DETAIL: z.enum(['low', 'high', 'auto']).default('low'),
 
 	ANTHROPIC_API_KEY: z.string().optional(),
 	ANTHROPIC_MODEL: z.string().default('claude-sonnet-4-5-20250929'),

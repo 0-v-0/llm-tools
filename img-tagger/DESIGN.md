@@ -140,13 +140,10 @@ AST 编译为对 `image` 的 SQL：
 
 ### 5.1 环境变量
 
-除 LLM 提供方与 bootstrap 路径外，其余可调项一律移入配置文件（§5.2），不再提供环境变量。
-
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `LLM_PROVIDER` | `openai` | `openai` / `anthropic` |
-| `OPENAI_API_BASE` / `OPENAI_API_KEY` / `OPENAI_MODEL` / `OPENAI_VISION_DETAIL` | 同 img-val | OpenAI 兼容配置 |
-| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | 同 img-val | Anthropic 配置 |
+| `OPENAI_*` | 同 img-val | OpenAI 兼容配置（配置优先，缺失回退环境变量） |
+| `ANTHROPIC_*` | 同 img-val | Anthropic 配置（配置优先，缺失回退环境变量） |
 | `IMGDATA_DIR` | `~/.img-data` | 统一数据目录（三工具共用），bootstrap 用，配置文件的定位依据 |
 
 ### 5.2 配置文件 imgtagger.toml

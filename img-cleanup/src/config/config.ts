@@ -1,10 +1,12 @@
-import { ConfigError } from '@llm-image/shared';
+import { ConfigError, createLlmConfigSchema } from '@llm-image/shared';
 import { existsSync, readFileSync } from 'node:fs';
 import { parse } from 'smol-toml';
 import { z } from 'zod';
 import { getConfigPath } from './paths.js';
 
 const configSchema = z.object({
+	// LLM provider 配置（配置优先，环境变量回退；visionDetail 仅配置）。
+	llm: createLlmConfigSchema('high'),
 	/** 每个批次中图片的数量 n，LLM 从中选 1 张最值得保留。默认 2。 */
 	batchSize: z.number().int().min(2).default(2),
 	/** 送入 LLM 前最长边像素限制。与 img-val 一致。 */

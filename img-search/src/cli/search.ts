@@ -1,4 +1,4 @@
-import { AppError, createProvider } from '@llm-image/shared';
+import { AppError, createProvider, resolveProviderConfig } from '@llm-image/shared';
 import { Command } from 'commander';
 import { stdin, stdout, stderr } from 'node:process';
 import { createInterface } from 'readline/promises';
@@ -24,7 +24,7 @@ export const searchCommand = new Command('search')
 			bootstrap();
 			getDb();
 
-			const llm = createProvider(env);
+			const llm = createProvider(resolveProviderConfig(config.llm, env));
 			const embedding = createEmbeddingProvider(env, config);
 			const qdrant = new QdrantStore(
 				env.QDRANT_URL,

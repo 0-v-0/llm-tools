@@ -23,6 +23,8 @@ export { OpenAIProvider } from './llm/openai.js';
 export { AnthropicProvider } from './llm/anthropic.js';
 export { createProvider, validateProviderConfig } from './llm/factory.js';
 export type { ProviderConfig } from './llm/factory.js';
+export { createLlmConfigSchema, resolveProviderConfig } from './llm/config.js';
+export type { LlmConfig, ProviderEnv } from './llm/config.js';
 
 // Image processing
 export { processImage } from './image/processor.js';

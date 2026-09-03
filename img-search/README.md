@@ -67,7 +67,6 @@ pnpm install
 
 ```env
 # LLM（问题生成）
-LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o
 
@@ -82,14 +81,12 @@ QDRANT_COLLECTION=images
 
 ### 环境变量
 
-仅 LLM 提供商、向量库与数据库目录通过环境变量配置：
+LLM 提供商、向量库与数据库目录通过环境变量配置。其中 `OPENAI_*` / `ANTHROPIC_*` 字段优先从下方 config.toml 的 `[llm]` 段读取，缺失时回退到下列环境变量。其余环境变量：
 
 | 变量                | 默认值                       | 说明                              |
 | ------------------- | ---------------------------- | --------------------------------- |
-| `LLM_PROVIDER`      | `openai`                     | LLM 提供商：`openai` 或 `anthropic` |
 | `OPENAI_API_KEY`    | —                            | OpenAI API 密钥                   |
 | `OPENAI_MODEL`      | `gpt-4o`                     | OpenAI 模型                       |
-| `OPENAI_VISION_DETAIL` | `low`                     | 图片视觉精度：`low`/`high`/`auto` |
 | `ANTHROPIC_API_KEY` | —                            | Anthropic API 密钥                |
 | `ANTHROPIC_MODEL`   | `claude-sonnet-4-5-20250929` | Anthropic 模型                    |
 | `JINA_API_KEY`      | —                            | Jina AI API 密钥                  |
@@ -103,10 +100,25 @@ QDRANT_COLLECTION=images
 
 ### 配置文件
 
-算法与导入调优参数统一放在配置文件 `~/.img-data/imgsearch.toml`（若设置了 `IMGDATA_DIR`，则为 `<IMGDATA_DIR>/imgsearch.toml`）。文件不存在时全部使用默认值；配置为唯一来源，无同名环境变量覆盖。
+算法、导入调优参数与 LLM provider 配置统一放在配置文件 `~/.img-data/imgsearch.toml`（若设置了 `IMGDATA_DIR`，则为 `<IMGDATA_DIR>/imgsearch.toml`）。文件不存在时全部使用默认值。`[llm]` 段中已设置的 provider 字段优先于同名环境变量，未设置的字段回退环境变量；`visionDetail` 仅从配置读取（默认 `low`），无环境变量。`[llm].provider` 指定走哪个提供商，未设置时按已配置的 apiKey 自动选择（双方都在→报错，都没有→报错）。其余调优参数为唯一来源，无同名环境变量覆盖。
 
 ```toml
 # ~/.img-data/imgsearch.toml
+
+[llm]
+provider = "openai"   # 可选；未设置时按已配置的 apiKey 自动选择（双方都在→报错，都没有→报错）
+
+[llm.openai]
+apiBase = "https://api.openai.com/v1"   # 缺失时回退 OPENAI_API_BASE 环境变量
+apiKey = "sk-..."                        # 缺失时回退 OPENAI_API_KEY 环境变量
+model = "gpt-4o"                         # 缺失时回退 OPENAI_MODEL 环境变量
+visionDetail = "low"                     # 仅配置（默认 low，无环境变量）
+
+[llm.anthropic]
+apiKey = "sk-ant-..."                    # 缺失时回退 ANTHROPIC_API_KEY 环境变量
+model = "claude-sonnet-4-5-20250929"     # 缺失时回退 ANTHROPIC_MODEL 环境变量
+apiBase = ""                             # 缺失时回退 ANTHROPIC_API_BASE 环境变量（可选）
+
 alpha = 0.5              # 文本/视觉相似度 blend 权重 (0~1)
 lambda = 8               # 似然核锐度，越大越尖锐
 beamSize = 500           # beam 候选数量
