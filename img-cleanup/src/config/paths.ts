@@ -19,6 +19,12 @@ export function getConfigPath(baseDir?: string): string {
 	return join(dir, 'imgcleanup.toml');
 }
 
+/** Path to imgcleanup-checkpoint.json. */
+export function getCheckpointPath(baseDir?: string): string {
+	const dir = baseDir ?? getHomeDir();
+	return join(dir, 'imgcleanup-checkpoint.json');
+}
+
 /** Ensure the data dir exists. */
 export function bootstrap(baseDir?: string): void {
 	const homeDir = getHomeDir();
