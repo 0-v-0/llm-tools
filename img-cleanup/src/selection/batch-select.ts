@@ -5,6 +5,7 @@ import type { ImageEntry } from '../storage/types.js';
 import type { Batch } from '../grouping/batching.js';
 import { buildBatchPrompt, labelFor, type PreparedImage } from '../llm/prompt.js';
 import { parseSelectionResponse } from '../llm/response-parser.js';
+import type { Checkpoint, Verdict } from '../checkpoint/index.js';
 
 export interface BatchResult {
 	/** The batch that was evaluated. */
@@ -22,20 +23,38 @@ export interface BatchResult {
  * Returns the kept image and the losers (n-1 images).
  *
  * Batches with 1 image are auto-kept (no LLM call).
+ *
+ * @param checkpoint Optional verdict cache. On a cache hit keyed by the batch's
+ *   URL-set, the LLM call is skipped and the cached kept/losers are returned.
+ *   Cache misses call the LLM and record the new verdict.
  */
 export async function selectFromBatch(
 	batch: Batch,
 	provider: LLMProvider,
 	maxImageDimension: number,
-): Promise<BatchResult> {
-	// Auto-keep if only 1 image
+	checkpoint?: Checkpoint,
+): Promise<{ result: BatchResult; reused: boolean }> {
+	// Auto-keep if only 1 image (no LLM call, no caching needed)
 	if (batch.images.length === 1) {
 		return {
-			batch,
-			kept: batch.images[0]!,
-			losers: [],
-			reason: '批次仅 1 张图片，自动保留',
+			result: {
+				batch,
+				kept: batch.images[0]!,
+				losers: [],
+				reason: '批次仅 1 张图片，自动保留',
+			},
+			reused: false,
 		};
+	}
+
+	// Cache lookup before any image processing / LLM call
+	const urls = batch.images.map((i) => i.url);
+	if (checkpoint) {
+		const hit = checkpoint.lookup(urls);
+		if (hit) {
+			const restored = restoreFromVerdict(batch, hit);
+			if (restored) return { result: restored, reused: true };
+		}
 	}
 
 	// Process all images (load, resize, base64)
@@ -76,10 +95,39 @@ export async function selectFromBatch(
 		.filter((p) => p.label !== parsed.selected)
 		.map((p) => p.entry);
 
-	return {
+	const result: BatchResult = {
 		batch,
 		kept: keptPrepared.entry,
 		losers,
 		reason: parsed.reason,
 	};
+
+	if (checkpoint) {
+		checkpoint.record({
+			urls: [...urls].sort(),
+			keptUrl: result.kept.url,
+			loserUrls: result.losers.map((l) => l.url),
+			reason: result.reason,
+			phase: 'batch',
+		});
+	}
+
+	return { result, reused: false };
+}
+
+/**
+ * Restore a BatchResult from a cached verdict.
+ * Returns null when the verdict references URLs no longer in the batch.
+ */
+function restoreFromVerdict(batch: Batch, verdict: Verdict): BatchResult | null {
+	const byUrl = new Map(batch.images.map((i) => [i.url, i]));
+	const kept = byUrl.get(verdict.keptUrl);
+	if (!kept) return null;
+	const losers: ImageEntry[] = [];
+	for (const u of verdict.loserUrls) {
+		const e = byUrl.get(u);
+		if (!e) return null;
+		losers.push(e);
+	}
+	return { batch, kept, losers, reason: verdict.reason };
 }

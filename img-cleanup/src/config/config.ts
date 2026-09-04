@@ -19,6 +19,10 @@ const configSchema = z.object({
 	storeRaw: z.boolean().default(false),
 	/** 失败日志目录。 */
 	failLogDir: z.string().optional(),
+	/** 自定义 checkpoint 路径；未设则使用 <IMGDATA_DIR>/imgcleanup-checkpoint.json。相对路径以 IMGDATA_DIR 为基准。 */
+	checkpointPath: z.string().optional(),
+	/** 是否启用中断恢复 checkpoint。 */
+	checkpointEnabled: z.boolean().default(true),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

@@ -4,6 +4,7 @@ import { processImage } from '@llm-image/shared';
 import type { ImageEntry } from '../storage/types.js';
 import { buildBatchPrompt, labelFor, type PreparedImage } from '../llm/prompt.js';
 import { parseSelectionResponse } from '../llm/response-parser.js';
+import type { Checkpoint } from '../checkpoint/index.js';
 
 export interface TournamentRound {
 	round: number;
@@ -20,6 +21,13 @@ export interface TournamentRound {
 	byes: ImageEntry[];
 }
 
+export interface TournamentOutcome {
+	survivors: ImageEntry[];
+	rounds: TournamentRound[];
+	/** Pairs whose verdict came from the checkpoint cache (no LLM call). */
+	reusedPairs: number;
+}
+
 /**
  * Tournament elimination: reduce a set of removal candidates to ≤ m.
  *
@@ -31,17 +39,22 @@ export interface TournamentRound {
  *
  * The tournament always uses pairs (n=2), regardless of the configured batch size.
  *
- * Returns the final set of removal candidates (≤ m) and the round history.
+ * When a `checkpoint` is supplied, each pair's verdict is cached under the pair's
+ * URL-set. Because pairing depends only on the candidate ORDER (which is derived
+ * from the batch phase), a changed `m` still reuses every pair that recurs —
+ * earlier rounds are identical, later rounds only appear when `m` shrinks.
  */
 export async function runTournament(
 	candidates: ImageEntry[],
 	m: number,
 	provider: LLMProvider,
 	maxImageDimension: number,
-): Promise<{ survivors: ImageEntry[]; rounds: TournamentRound[] }> {
+	checkpoint?: Checkpoint,
+): Promise<TournamentOutcome> {
 	let current = [...candidates];
 	const rounds: TournamentRound[] = [];
 	let roundNum = 0;
+	let reusedPairs = 0;
 
 	while (current.length > m) {
 		roundNum++;
@@ -52,7 +65,9 @@ export async function runTournament(
 		for (let i = 0; i + 1 < current.length; i += 2) {
 			const a = current[i]!;
 			const b = current[i + 1]!;
-			const result = await comparePair(a, b, provider, maxImageDimension);
+			const before = checkpoint?.reusedCount ?? 0;
+			const result = await comparePair(a, b, provider, maxImageDimension, checkpoint);
+			if (checkpoint && checkpoint.reusedCount > before) reusedPairs++;
 			pairs.push(result);
 		}
 
@@ -67,24 +82,35 @@ export async function runTournament(
 		current = pairs.map((p) => p.eliminated);
 	}
 
-	return { survivors: current, rounds };
+	return { survivors: current, rounds, reusedPairs };
 }
 
 /**
  * Compare a pair: LLM picks 1 to keep, the other is the "eliminated"
- * (stays as a removal candidate).
+ * (stays as a removal candidate). Served from the verdict cache when possible.
  */
 async function comparePair(
 	a: ImageEntry,
 	b: ImageEntry,
 	provider: LLMProvider,
 	maxImageDimension: number,
+	checkpoint?: Checkpoint,
 ): Promise<{
 	pair: [ImageEntry, ImageEntry];
 	kept: ImageEntry;
 	eliminated: ImageEntry;
 	reason: string;
 }> {
+	// Cache lookup before any image processing / LLM call
+	const hit = checkpoint?.lookup([a.url, b.url]);
+	if (hit) {
+		const kept = hit.keptUrl === a.url ? a : hit.keptUrl === b.url ? b : null;
+		const eliminated = kept === null ? null : kept === a ? b : a;
+		if (kept && eliminated) {
+			return { pair: [a, b], kept, eliminated, reason: hit.reason };
+		}
+	}
+
 	// Process both images
 	const preparedA: PreparedImage = {
 		entry: a,
@@ -119,6 +145,14 @@ async function comparePair(
 
 	const kept = keptPrepared.entry;
 	const eliminated = kept === a ? b : a;
+
+	checkpoint?.record({
+		urls: [a.url, b.url].sort(),
+		keptUrl: kept.url,
+		loserUrls: [eliminated.url],
+		reason: parsed.reason,
+		phase: 'tournament',
+	});
 
 	return { pair: [a, b], kept, eliminated, reason: parsed.reason };
 }

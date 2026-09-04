@@ -80,11 +80,36 @@ confidence 等任何估值相关字段。
 - **独立包缺点**：重复部分工具函数（url.ts、path-match.ts）。但这些函数
   体量小且稳定，复制成本低于跨包依赖。
 
+### 6. 中断恢复：以「比较图片集合」为键的裁决缓存
+
+流水线中断（Ctrl+C / 崩溃 / 网络错误）后，已完成的 LLM 视觉比较若不能复用，
+重跑成本随图片规模线性增长。因此引入 checkpoint 机制：
+
+- **存储**：单 JSON 文件 `<IMGDATA_DIR>/imgcleanup-checkpoint.json`，原子写
+  （tmp + rename），每完成一次比较即落盘。不使用 SQLite——img-cleanup 以无
+  迁移方式只读式打开 imgval.db，不往估值库写私有表。
+- **缓存键**：`sha256(sorted(urls))`。LLM 的裁决只取决于「这组图片是谁」
+  （prompt 不含任何估值信息，见决策 3），因此该键与分组/批次划分方式解耦。
+- **分层复用**：`m`、`target-dir`、`batchSize`、`bucketBoundaries`、`--path`、
+  图片集合增删都只影响「怎么分组」或下游阶段，不影响「这组图谁最值得保留」，
+  全部按 URL 匹配复用。`--standard` 变化改变分组依据：按用户要求打印警告并
+  交互确认后复用（`--force` 跳过确认；非交互终端未确认则重新开始）。
+- **作废条件**：仅「裁判换了」——provider / model / maxImageDimension /
+  prompt 版本任一变化，或 checkpoint 损坏 / schema 版本不兼容。
+- **锦标赛**：pair 裁决同样入缓存。候选顺序由批次结果确定性推导，故 `m` 变化
+  时已比较过的 pair 仍命中，只比较新出现的 pair。
+- **移动阶段**：按源路径记录进度，中断后跳过已移动文件；「已 rename 未更新
+  DB」的半完成移动在恢复时自动补做。
+
+权衡：按 URL 集合缓存（而非按批次下标）牺牲了少量缓存条目体积，换来任意
+参数变化下的最大复用率与对确定性排序的弱依赖。
+
 ## 影响范围
 
 - 新增 `img-cleanup/` 目录，纳入 pnpm workspace。
 - 读取 `~/.img-data/imgval.db`（由 img-val 创建）和 `~/.img-data/fileindex.db`
   （由 file-index 创建）。
 - 移动文件后更新两个数据库中的 URL 记录（与 move-low 行为一致）。
-- 新增配置文件 `~/.img-data/imgcleanup.toml`。
+- 新增配置文件 `~/.img-data/imgcleanup.toml`（含 `checkpointEnabled` / `checkpointPath`）。
+- 新增中断恢复 checkpoint 文件 `~/.img-data/imgcleanup-checkpoint.json`。
 - 不修改任何现有包的代码或数据库 schema。

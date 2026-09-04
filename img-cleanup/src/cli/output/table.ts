@@ -16,6 +16,12 @@ export function renderCleanupSummary(result: CleanupResult): string {
 	if (result.tournamentUsed) {
 		lines.push(`│ 锦标赛轮数:   ${String(result.tournamentRounds.length).padEnd(24)}│`);
 	}
+	if (result.reusedBatches > 0 || result.llmCalls >= 0) {
+		lines.push(`│ 本次LLM调用:  ${String(result.llmCalls).padEnd(24)}│`);
+		if (result.reusedBatches > 0) {
+			lines.push(`│ 复用缓存批次: ${String(result.reusedBatches).padEnd(24)}│`);
+		}
+	}
 	lines.push(`│ 最终移走:     ${String(result.toRemove.length).padEnd(24)}│`);
 	lines.push('└──────────────────────────────────────────┘');
 

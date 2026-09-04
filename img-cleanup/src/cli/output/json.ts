@@ -17,6 +17,8 @@ export function renderCleanupJson(result: CleanupResult): string {
 			width: img.width,
 			height: img.height,
 		})),
+		reusedBatches: result.reusedBatches,
+		llmCalls: result.llmCalls,
 	}, null, 2);
 }
 
