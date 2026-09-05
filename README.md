@@ -20,7 +20,7 @@ pnpm install
 | [img-val](./img-val/README.md) | 基于多模态 LLM 的图片估值，输出人民币最低/最高价值区间 |
 | [img-cleanup](./img-cleanup/README.md) | 读取 img-val 估值结果，LLM 批次视觉比较并移走最不值得保留的图片 |
 | [img-search](./img-search/README.md) | LLM 交互式提问 + 贝叶斯推理的智能图片搜索（Qdrant 语义检索） |
-| [image-classifier](./image-classifier/README.md) | 基于 LLM 的图片重命名/聚类工具 |
+| [img-renamer](./img-renamer/README.md) | 基于 LLM 的图片重命名/聚类工具 |
 | [tag-translator](./tag-translator/) | Danbooru 标签批量翻译工具 |
 | [@llm-image/shared](./shared/) | 共享基础库：LLM provider（OpenAI / Anthropic）、图片处理与哈希、SQLite、错误处理 |
 | [@llm-image/file-index](./file-index/) | 共享文件索引：文件元信息、BLAKE3 内容指纹与 URL 位置（`file-index.db`） |

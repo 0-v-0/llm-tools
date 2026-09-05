@@ -1,8 +1,8 @@
 {
-	"name": "image-classifier",
+	"name": "img-renamer",
 	"version": "0.0.1",
 	"private": true,
-	"description": "A simple image classifier using OpenAI's API",
+	"description": "LLM 驱动的图片重命名与聚类脚本（保留原有 JS 入口，未纳入 img-* 统一框架）",
 	"license": "Apache-2.0",
 	"author": "0-v-0 <kduice@qq.com>",
 	"type": "module",
