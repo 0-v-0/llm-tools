@@ -39,15 +39,13 @@ pnpm --filter img-val build
 node img-val/dist/index.js ./images/ --concurrency 3
 ```
 
-`shared` 需要先于依赖它的包编译。`img-val` / `img-cleanup` 的 build 脚本会自动执行
-`pnpm --filter @llm-image/shared build`；单独开发这些包时，先手动构建一次 shared。
+共享库 `@llm-image/shared` 与 `@llm-image/file-index` 需先于依赖它们的包编译，其它包才能解析到其产物。`img-val` / `img-cleanup` 的 build 脚本会自动先构建 `@llm-image/shared`；`file-index` 及未自动构建 shared 的场景，需先手动执行一次 `pnpm --filter @llm-image/shared build`、`pnpm --filter @llm-image/file-index build`。
 
 ## 配置与数据
 
 - **配置文件**：`<IMGDATA_DIR>/<工具名>.toml`（默认 `~/.img-data/imgval.toml`、`imgsearch.toml`、`imgcleanup.toml`）。文件不存在时使用全部默认值。
 - **LLM provider**：`[llm]` 段优先于环境变量，缺省字段回退同名环境变量；`provider` 未设置时按已配置的 apiKey 自动选择（两个都配或都没配均报错）。
 - **数据目录**：数据库与配置统一存放于 `~/.img-data/`，以工具名区分文件名（`imgval.db`、`imgsearch.db`、`imgcleanup-checkpoint.json`、`file-index.db` …）。可用环境变量 `IMGDATA_DIR` 整体重定位。
-
 
 ## 许可
 
