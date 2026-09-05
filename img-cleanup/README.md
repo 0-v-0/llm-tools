@@ -5,14 +5,14 @@
 ## 工作原理
 
 ```
-DB 查询 → 分组(standard + max_value 桶) → 批次比较(n张/批, LLM选1留)
+DB 查询 → 分组(估值标准 + 估值区间) → 批次比较(n张/批, LLM选1留)
                                               ↓
                                     落选者汇总
                                      ↓     ↑ 落选者 ≤ m → 移走全部
                             落选者 > m → 锦标赛淘汰 → 移走 ≤ m 张
 ```
 
-1. **分组**：先按估值标准分组，组内按 max_value 分桶（同桶图片价值相近，比较更有意义）
+1. **分组**：先按估值标准分组，再按估值高低分区间（同区间图片价值相近，比较更有意义）
 2. **批次比较**：每 n 张（默认 2）为一批，LLM 基于视觉质量选出 1 张"最值得保留"
 3. **锦标赛**：落选者超过 m 张时，配对淘汰直到 ≤ m 张
 4. **移走**：将最终选出的图片移到目标目录，同步更新数据库
@@ -91,7 +91,7 @@ bucketBoundaries = [0, 30, 100, 500, 2000, 5000, 15000]  # 估值分桶边界
 storeRaw = false                                 # 是否存储 LLM 原始回复
 checkpointEnabled = true                         # 中断恢复（checkpoint）开关
 # checkpointPath = "/custom/path.json"           # 自定义 checkpoint 位置（默认 <IMGDATA_DIR>/imgcleanup-checkpoint.json）
-
+```
 
 ## CLI 命令
 
@@ -143,14 +143,14 @@ imgcleanup 50 ./to-remove/ --standard recovery-value --force
 ### 复用规则
 
 checkpoint 以「**参与比较的图片集合**」为缓存主键，与分组/批次划分解耦。
-LLM 的裁决只取决于这组图片本身（prompt 不含任何估值信息），因此：
+LLM 的裁决只取决于这组图片本身（比较时不提供任何估值信息），因此：
 
 | 参数变化 | 行为 |
 |---------|------|
 | `m`（数量/百分比） | ✅ 批次裁决全部复用；锦标赛按新阈值重算，已比较过的 pair 直接命中 |
 | `target-dir` | ✅ 复用全部裁决，仅移动进度重置 |
 | `--dry-run` ↔ 实际执行 | ✅ 复用全部裁决（可先预览再真实执行） |
-| `--batch-size` / `--path` / 图片增删 | ✅ 重新分组分批，url 集合相同的批次仍命中缓存 |
+| `--batch-size` / `--path` / 图片增删 | ✅ 重新分组分批，图片集合相同的批次仍命中缓存 |
 | `--standard` | ⚠️ 分组依据变化：打印警告并交互确认后复用；非交互终端需 `--force`，否则重新开始 |
 | provider / model / `maxImageDimension` / prompt 版本 | ❌ 「裁判换了」，checkpoint 整体作废 |
 
@@ -162,6 +162,7 @@ LLM 的裁决只取决于这组图片本身（prompt 不含任何估值信息）
   落盘，最多丢失正在进行的一次比较。
 - 成功完成后 checkpoint 自动清理；作废时旧文件备份为 `*.bak.<时间戳>`。
 - 配置：`checkpointEnabled`（默认 `true`）、`checkpointPath`（`imgcleanup.toml`）。
+
 ## 开发
 
 ```sh

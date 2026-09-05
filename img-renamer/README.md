@@ -32,6 +32,7 @@
 
 ```
 node img-renamer/classifier.js --dry-run
+```
 
 ## cluster.js
 
@@ -45,3 +46,4 @@ node img-renamer/classifier.js --dry-run
 
 ```bash
 node img-renamer/cluster.js -n 5 --metric aspect-ratio
+```
