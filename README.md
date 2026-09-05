@@ -19,7 +19,7 @@ pnpm install
 | --- | --- |
 | [`img-search`](./img-search/README.md) | 通过 LLM 交互式提问的智能图片搜索（贝叶斯推理 + Qdrant） |
 | [`img-val`](./img-val/README.md) | 基于多模态 LLM 的图片估值工具 |
-| [`image-classifier`](./image-classifier/README.md) | 基于 LLM 的图片重命名/聚类工具 |
+| [`img-renamer`](./img-renamer/README.md) | 基于 LLM 的图片重命名/聚类工具 |
 | [`tag-translator`](./tag-translator/) | Danbooru 标签批量翻译工具 |
 | [`shared`](./shared/) | 共享基础库：LLM provider、图片处理、SQLite 存储、错误处理 |
 

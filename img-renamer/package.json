@@ -1,0 +1,32 @@
+{
+	"name": "img-renamer",
+	"version": "0.1.0",
+	"private": true,
+	"description": "LLM 驱动的图片重命名与聚类 CLI（commander + @llm-image/shared）",
+	"type": "module",
+	"bin": {
+		"imgrenamer": "./dist/index.js"
+	},
+	"main": "./dist/index.js",
+	"scripts": {
+		"build": "pnpm --filter @llm-image/shared build && tsc -p tsconfig.build.json",
+		"dev": "node src/index.ts",
+		"start": "node dist/index.js",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@llm-image/shared": "workspace:*",
+		"commander": "^15.0.0",
+		"image-size": "^2.0.2",
+		"openai": "^6.49.0",
+		"smol-toml": "^1.8.0",
+		"zod": "^4.5.4"
+	},
+	"devDependencies": {
+		"@types/node": "^26.4.0",
+		"typescript": "^7.0.2"
+	},
+	"engines": {
+		"node": ">=22.0.0"
+	}
+}

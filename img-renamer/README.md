@@ -1,6 +1,8 @@
-# Image Classifier
+# img-renamer — 图片重命名脚本
 
-本工具是一个命令行应用程序，用于遍历当前工作目录及其所有子目录中的图片文件，通过AI分析图片内容自动提取关键信息，并根据这些信息为图片生成新的文件名。
+本工具是一个命令行应用程序，用于遍历当前工作目录及其所有子目录中的图片文件，通过 AI 分析图片内容自动提取关键信息，并根据这些信息为图片生成新的文件名。
+
+> 遗留包：使用原生 JS + minimist，未接入 `@llm-image/shared`、`file-index` 与统一数据目录；仅保留 `classifier.js`（LLM 重命名）与 `cluster.js`（按名/分辨率/宽高比聚类）两个入口。与 `img-*` 家族的 CLI/配置/存储约定不同，请勿混淆。改名原因：包名 `image-classifier` 与实际行为不符，且与新工具 `img-classify`（互斥单类别分类）在语义上冲突。
 
 ## 命令行参数
 
@@ -29,8 +31,7 @@
 示例（仅日志，不执行重命名）：
 
 ```
-node image-classifier/classifier.js --dry-run
-```
+node img-renamer/classifier.js --dry-run
 
 ## cluster.js
 
@@ -43,5 +44,4 @@ node image-classifier/classifier.js --dry-run
 示例：
 
 ```bash
-node image-classifier/cluster.js -n 5 --metric aspect-ratio
-```
+node img-renamer/cluster.js -n 5 --metric aspect-ratio

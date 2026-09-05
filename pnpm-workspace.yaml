@@ -1,7 +1,7 @@
 packages:
   - "shared"
   - "file-index"
-  - "image-classifier"
+  - "img-renamer"
   - "img-search"
   - "img-val"
   - "img-cleanup"
