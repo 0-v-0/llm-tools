@@ -19,7 +19,7 @@ function makeInputs(overrides: Partial<RunInputs> = {}): RunInputs {
 		dryRun: true,
 		imageUrls: ['file:///a.jpg', 'file:///b.jpg', 'file:///c.jpg', 'file:///d.jpg'],
 		provider: 'openai',
-		model: 'gpt-4o',
+		model: 'gpt-5.6-luna',
 		maxImageDimension: 1568,
 		...overrides,
 	};
@@ -156,7 +156,7 @@ describe('resolveCheckpoint', () => {
 		const path = join(dir, 'c.json');
 		const inputs = makeInputs();
 		makeExisting(path, inputs, 2);
-		const res = await resolveCheckpoint(path, makeInputs({ model: 'gpt-4o-mini' }));
+		const res = await resolveCheckpoint(path, makeInputs({ model: 'gpt-5.4-mini' }));
 		expect(res.resumed).toBe(false);
 		expect(res.cachedVerdicts).toBe(0);
 		expect(res.checkpoint.size).toBe(0);

@@ -197,9 +197,9 @@ describe('imageSetHash & cacheKey', () => {
 	});
 
 	it('cacheKey distinguishes judge parameters only', () => {
-		const base = { provider: 'openai', model: 'gpt-4o', temperature: 0, maxImageDimension: 1568, promptVersion: 1 };
+		const base = { provider: 'openai', model: 'gpt-5.6-luna', temperature: 0, maxImageDimension: 1568, promptVersion: 1 };
 		expect(computeCacheKey(base)).toBe(computeCacheKey({ ...base }));
-		expect(computeCacheKey(base)).not.toBe(computeCacheKey({ ...base, model: 'gpt-4o-mini' }));
+		expect(computeCacheKey(base)).not.toBe(computeCacheKey({ ...base, model: 'gpt-5.4-mini' }));
 		expect(computeCacheKey(base)).not.toBe(computeCacheKey({ ...base, maxImageDimension: 1024 }));
 	});
 });
