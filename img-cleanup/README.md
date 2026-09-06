@@ -33,7 +33,6 @@ pnpm install
 pnpm --filter img-cleanup build
 
 # 配置环境变量（与 img-val 共用）
-export LLM_PROVIDER=openai
 export OPENAI_API_KEY=your-key
 export OPENAI_MODEL=gpt-4o
 
@@ -60,20 +59,32 @@ node img-cleanup/dist/index.js 10 ./to-remove/ --path '**/old/**'
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `LLM_PROVIDER` | `openai` | LLM 提供商 (`openai` 或 `anthropic`) |
 | `OPENAI_API_BASE` | `https://api.openai.com/v1` | OpenAI 兼容 API 地址 |
 | `OPENAI_API_KEY` | — | OpenAI API 密钥 |
 | `OPENAI_MODEL` | `gpt-4o` | 模型名称 |
-| `OPENAI_VISION_DETAIL` | `high` | Vision 详情级别 |
 | `ANTHROPIC_API_KEY` | — | Anthropic API 密钥 |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-5-20250929` | 模型名称 |
 | `IMGDATA_DIR` | `~/.img-data` | 统一数据目录 |
 
 ## 配置文件
 
-`~/.img-data/imgcleanup.toml`：
+`~/.img-data/imgcleanup.toml`（`[llm]` 段配置 LLM provider，优先于环境变量；`provider` 未设时按 apiKey 自动选择（双方都在→报错，都没有→报错）。其余为行为调优参数）：
 
 ```toml
+[llm]
+provider = "openai"   # 可选；未设置时按已配置的 apiKey 自动选择（双方都在→报错，都没有→报错）
+
+[llm.openai]
+apiBase = "https://api.openai.com/v1"   # 缺失时回退 OPENAI_API_BASE 环境变量
+apiKey = "sk-..."                        # 缺失时回退 OPENAI_API_KEY 环境变量
+model = "gpt-4o"                         # 缺失时回退 OPENAI_MODEL 环境变量
+visionDetail = "high"                    # 仅配置（默认 high，无环境变量）
+
+[llm.anthropic]
+apiKey = "sk-ant-..."                    # 缺失时回退 ANTHROPIC_API_KEY 环境变量
+model = "claude-sonnet-4-5-20250929"     # 缺失时回退 ANTHROPIC_MODEL 环境变量
+apiBase = ""                             # 缺失时回退 ANTHROPIC_API_BASE 环境变量（可选）
+
 batchSize = 2                                    # 每个批次图片数量 n
 maxImageDimension = 1568                         # 送入 LLM 前最长边像素限制
 bucketBoundaries = [0, 30, 100, 500, 2000, 5000, 15000]  # 估值分桶边界
