@@ -9,7 +9,7 @@ Intelligent image search via LLM-driven interactive questioning.
 ```
 1. 初始化 beam（500 候选）
    - 有提示词: Qdrant 语义搜索 → 取 top 500
-   - 无提示词: Qdrant 随机采样 500
+   - 无提示词: Qdrant scroll 按 id 顺序取前 500（确定性采样）
 
 2. 每轮提问:
    a. 取 beam top-50 候选的描述
@@ -63,20 +63,18 @@ pnpm install
 
 ## 配置
 
-在 `img-search/` 下创建 `.env` 文件（参考 `.env.example`）：
+代码不会加载 `.env` 文件，环境变量需直接在 shell 或系统环境中设置（`.env.example` 仅作为变量清单参考）：
 
-```env
-# LLM（问题生成）
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-5.6-luna
+```sh
+# 示例（bash）
+export OPENAI_API_KEY=sk-...
+export OPENAI_MODEL=gpt-5.6-luna
 
-# Embedding（Jina CLIP v2）
-JINA_API_KEY=jina_...
-JINA_MODEL=jina-clip-v2
+export JINA_API_KEY=jina_...
+export JINA_MODEL=jina-clip-v2
 
-# Qdrant
-QDRANT_URL=http://localhost:6333
-QDRANT_COLLECTION=images
+export QDRANT_URL=http://localhost:6333
+export QDRANT_COLLECTION=images
 ```
 
 ### 环境变量
@@ -86,8 +84,10 @@ LLM 提供商、向量库与数据库目录通过环境变量配置。其中 `OP
 | 变量                | 默认值                       | 说明                              |
 | ------------------- | ---------------------------- | --------------------------------- |
 | `OPENAI_API_KEY`    | —                            | OpenAI API 密钥                   |
+| `OPENAI_API_BASE`   | `https://api.openai.com/v1`  | OpenAI API 地址                   |
 | `OPENAI_MODEL`      | `gpt-5.6-luna`                     | OpenAI 模型                       |
 | `ANTHROPIC_API_KEY` | —                            | Anthropic API 密钥                |
+| `ANTHROPIC_API_BASE` | —                           | Anthropic API 地址                |
 | `ANTHROPIC_MODEL`   | `claude-sonnet-5` | Anthropic 模型                    |
 | `JINA_API_KEY`      | —                            | Jina AI API 密钥                  |
 | `JINA_MODEL`        | `jina-clip-v2`               | embedding 模型                    |
@@ -125,7 +125,6 @@ candidateQuestions = 5   # 每轮生成候选问题数上限
 igThreshold = 0.05       # 信息增益终止阈值 (nats)
 maxRounds = 8            # 最大提问轮数
 minRounds = 2            # 最小提问轮数（在此之前不允许 IG 终止）
-showThumbnails = false   # 是否在提问时给 LLM 看候选缩略图
 
 # 导入
 maxImageDimension = 512  # 导入时图片最大边长 (px)
@@ -153,7 +152,7 @@ pnpm --filter img-search dev -- import ./photos --include "*.{jpg,png}"
 
 1. 遍历目录收集图片文件
 2. `blake3HexFile` 计算原始文件 BLAKE3 指纹
-3. file-index 按 `blake3` 去重（已登记非失败状态 → 跳过，避免重读同一原始文件）
+3. image_import 按 `blake3` 去重（该原始文件已 `indexed` → 跳过，避免重读同一原始文件）
 4. `sharp` 缩放图片 → base64 + 处理后 `hash`（SHA-256，视觉内容指纹）
 5. image_import 按 `hash` 去重：仅 EXIF 不同的两张图片 `blake3` 不同但 `hash` 相同 → 跳过第二张（避免重复 LLM 描述 + embedding + Qdrant 写入），但仍将其 `blake3` 登记到 file-index 以追踪其 url
 6. LLM 生成文本描述
@@ -167,7 +166,7 @@ pnpm --filter img-search dev -- import ./photos --include "*.{jpg,png}"
 ### 搜索图片
 
 ```bash
-# 无提示词搜索（随机采样候选）
+# 无提示词搜索（scroll 按 id 顺序确定性采样候选）
 pnpm --filter img-search dev -- search
 
 # 带提示词搜索（语义搜索 bootstrap 候选集）
@@ -241,8 +240,7 @@ img-search/src/
 │   ├── types.ts            # 数据类型（含 blake3 + hash）
 │   ├── repository.image.ts # image_import 表 CRUD（按 blake3 / hash）
 │   └── migrations/
-│       ├── 001_init.sql               # 初始 schema（已废弃 source_path）
-│       └── 002_drop_source_path_hash_add_blake3.sql
+│       └── 001_init.sql               # 初始 schema（blake3 + hash 双指纹列）
 ├── search/                 # 核心搜索算法
 │   ├── bayes.ts            # 贝叶斯更新、信息增益、多样性（纯函数）
 │   ├── beam.ts             # Beam 类（候选集管理）
@@ -275,6 +273,8 @@ img-search/src/
 - `zod` — 环境变量与配置校验
 
 ## 开发
+
+> 模块结构、存储 schema 与内部流程等实现细节见 [docs/impl.md](docs/impl.md)。
 
 ```bash
 # 运行测试

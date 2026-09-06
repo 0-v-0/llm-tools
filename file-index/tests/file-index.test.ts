@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { openFileIndexDb, type DB } from '../src/db.js';
-import { FileIndexRepo } from '../src/repository.links.js';
-import { blake3Hex, blake3HexFile, blake3HexDataUri, blake3HexString } from '../src/fingerprint.js';
-import { nowTicks, ticksToDate } from '../src/time.js';
-import { classifyUrl, normalizeUrl, toFileUrl } from '../src/url.js';
-import { verifyLink } from '../src/verify.js';
+import { openFileIndexDb, type DB } from '../src/db.ts';
+import { FileIndexRepo } from '../src/repository.links.ts';
+import { blake3Hex, blake3HexFile, blake3HexDataUri, blake3HexString } from '../src/fingerprint.ts';
+import { nowTicks, ticksToDate } from '../src/time.ts';
+import { classifyUrl, normalizeUrl, toFileUrl } from '../src/url.ts';
+import { verifyLink } from '../src/verify.ts';
 
 function openTempDb(): DB {
 	const dir = mkdtempSync(join(tmpdir(), 'file-index-test-'));

@@ -2,7 +2,8 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { loadConfig } from '../../src/config/config.js';
+import { loadConfig } from '../../src/config/config.ts';
+import { loadEnv } from '../../src/config/env.ts';
 import { resolveProviderConfig } from '@llm-image/shared';
 import type { LlmConfig, ProviderEnv } from '@llm-image/shared';
 
@@ -210,8 +211,11 @@ describe('resolveProviderConfig (LLM provider 选择)', () => {
 				},
 			} as unknown as LlmConfig;
 
-			// 双密钥并存时必须显式 provider（见 resolveProviderConfig 语义）
-			const envObj = env('openai-key', 'anthropic-key');
+			// 双密钥并存时必须显式 provider（见 resolveProviderConfig 语义）；
+			// env 优先级针对 process.env，须用真实 loadEnv() 而非硬编码 stub
+			process.env.OPENAI_API_KEY = 'openai-key';
+			process.env.ANTHROPIC_API_KEY = 'anthropic-key';
+			const envObj = loadEnv();
 			const cfg = resolveProviderConfig(llm, envObj);
 
 			expect(cfg.OPENAI_API_BASE).toBe('https://env-openai-proxy/v1');
@@ -220,6 +224,8 @@ describe('resolveProviderConfig (LLM provider 选择)', () => {
 			expect(cfg.ANTHROPIC_API_BASE).toBe('https://env-anthropic-proxy/v1');
 		} finally {
 			// 清理环境变量
+			delete process.env.OPENAI_API_KEY;
+			delete process.env.ANTHROPIC_API_KEY;
 			if (originalOpenaiApiBase === undefined) {
 				delete process.env.OPENAI_API_BASE;
 			} else {

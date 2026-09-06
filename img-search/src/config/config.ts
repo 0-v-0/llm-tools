@@ -2,8 +2,8 @@ import { ConfigError, createLlmConfigSchema } from '@llm-image/shared';
 import { existsSync, readFileSync } from 'node:fs';
 import { parse } from 'smol-toml';
 import { z } from 'zod';
-import { toErrorMessage } from '../util/error-message.js';
-import { getConfigPath } from './paths.js';
+import { toErrorMessage } from '../util/error-message.ts';
+import { getConfigPath } from './paths.ts';
 
 const configSchema = z.object({
 	llm: createLlmConfigSchema('low'),

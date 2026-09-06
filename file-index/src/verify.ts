@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs';
-import { blake3HexFile, blake3HexDataUri } from './fingerprint.js';
-import { classifyUrl, fileUrlToPath, normalizeUrl } from './url.js';
-import { mimeFromUrl } from './type.js';
-import { FileIndexRepo, type LinkRecord, type LinkStatus } from './repository.links.js';
-import { VerifyError } from './errors.js';
+import { blake3HexFile, blake3HexDataUri } from './fingerprint.ts';
+import { classifyUrl, fileUrlToPath, normalizeUrl } from './url.ts';
+import { mimeFromUrl } from './type.ts';
+import { FileIndexRepo, type LinkRecord, type LinkStatus } from './repository.links.ts';
+import { VerifyError } from './errors.ts';
 
 export interface VerifyResult {
 	url: string;

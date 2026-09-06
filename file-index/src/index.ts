@@ -1,13 +1,13 @@
-export { openFileIndexDb, type DB } from './db.js';
-export { getFileIndexDbPath } from './paths.js';
-export { nowTicks, ticksToDate, ticksToIso, ticksToMs, TICKS_PER_MS } from './time.js';
+export { openFileIndexDb, type DB } from './db.ts';
+export { getFileIndexDbPath } from './paths.ts';
+export { nowTicks, ticksToDate, ticksToIso, ticksToMs, TICKS_PER_MS } from './time.ts';
 export {
 	blake3Hex,
 	blake3HexString,
 	blake3HexFile,
 	blake3HexDataUri,
 	createBlake3Hasher,
-} from './fingerprint.js';
+} from './fingerprint.ts';
 export {
 	classifyUrl,
 	normalizeUrl,
@@ -18,17 +18,17 @@ export {
 	protocolPriority,
 	PROTOCOL_ORDER,
 	type Protocol,
-} from './url.js';
-export { mimeFromUrl, mimeFromDataUri, mimeFromExtension } from './type.js';
+} from './url.ts';
+export { mimeFromUrl, mimeFromDataUri, mimeFromExtension } from './type.ts';
 export {
 	FileIndexRepo,
 	type LinkStatus,
 	type LinkRecord,
-} from './repository.links.js';
-export { verifyLink, verifyStale, type VerifyResult } from './verify.js';
+} from './repository.links.ts';
+export { verifyLink, verifyStale, type VerifyResult } from './verify.ts';
 export {
 	FileIndexError,
 	UrlError,
 	StorageError,
 	VerifyError,
-} from './errors.js';
+} from './errors.ts';

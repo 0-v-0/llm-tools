@@ -1,7 +1,7 @@
-import type { DB } from './db.js';
-import { nowTicks } from './time.js';
-import { normalizeUrl, classifyUrl, protocolPriority, type Protocol } from './url.js';
-import { mimeFromUrl } from './type.js';
+import type { DB } from './db.ts';
+import { nowTicks } from './time.ts';
+import { normalizeUrl, classifyUrl, protocolPriority, type Protocol } from './url.ts';
+import { mimeFromUrl } from './type.ts';
 
 export type LinkStatus = 0 | 1 | 2 | 3;
 
@@ -32,7 +32,11 @@ function rowToLink(row: Record<string, unknown>): LinkRecord {
 const SELECT_COLS = `id, url, blake3, type, CAST(size AS TEXT) AS size, status, CAST(created_at AS TEXT) AS created_at, CAST(updated_at AS TEXT) AS updated_at`;
 
 export class FileIndexRepo {
-	constructor(private db: DB) {}
+	private db: DB;
+
+	constructor(db: DB) {
+		this.db = db;
+	}
 
 	register(input: {
 		url: string;

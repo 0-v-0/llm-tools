@@ -12,20 +12,20 @@
 	"types": "./dist/index.d.ts",
 	"scripts": {
 		"build": "tsc -p tsconfig.json && node -e \"const fs=require('fs'),path=require('path');const src=path.join('src','storage','migrations'),dst=path.join('dist','storage','migrations');fs.rmSync(dst,{recursive:true,force:true});fs.cpSync(src,dst,{recursive:true});\"",
-		"dev": "tsx src/cli.ts",
+		"dev": "node src/cli.ts",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},
 	"dependencies": {
+		"@llm-image/shared": "workspace:*",
 		"blake3": "^2.1.7",
 		"commander": "^15.0.0"
 	},
 	"devDependencies": {
-		"@types/node": "^26.2.0",
-		"tsx": "^4.23.12",
+		"@types/node": "^26.4.0",
 		"typescript": "^7.0.2",
-		"vitest": "^4.1.10"
+		"vitest": "^4.1.11"
 	},
 	"engines": {
 		"node": ">=22.0.0"

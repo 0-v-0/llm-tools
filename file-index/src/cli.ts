@@ -2,12 +2,12 @@
 import { Command } from 'commander';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { openFileIndexDb } from './db.js';
-import { FileIndexRepo } from './repository.links.js';
-import { verifyLink, verifyStale } from './verify.js';
-import { blake3HexFile, blake3HexDataUri } from './fingerprint.js';
-import { toFileUrl } from './url.js';
-import { nowTicks, ticksToIso } from './time.js';
+import { openFileIndexDb } from './db.ts';
+import { FileIndexRepo } from './repository.links.ts';
+import { verifyLink, verifyStale } from './verify.ts';
+import { blake3HexFile, blake3HexDataUri } from './fingerprint.ts';
+import { toFileUrl } from './url.ts';
+import { nowTicks, ticksToIso } from './time.ts';
 
 function resolveDbPath(cliDb?: string): string {
 	if (cliDb) return cliDb;
