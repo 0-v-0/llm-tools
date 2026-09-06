@@ -47,3 +47,7 @@ export {
 	ParseError,
 } from './util/errors.js';
 export type { ExitCode } from './util/errors.js';
+
+// File system helpers
+export { walk, extname } from './util/walk.js';
+export type { WalkOptions } from './util/walk.js';

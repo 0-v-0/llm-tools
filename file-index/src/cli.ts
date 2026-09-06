@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { walk } from '@llm-image/shared';
 import { Command } from 'commander';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -219,8 +220,8 @@ program
 	.option('--include <exts>', '文件扩展名 (逗号分隔)', 'jpg,jpeg,png,webp')
 	.option('--json', 'JSON 格式输出')
 	.action(async (dir: string, opts, cmd) => {
-		const { readdir, stat } = await import('node:fs/promises');
-		const { resolve, extname, join } = await import('node:path');
+		const { stat } = await import('node:fs/promises');
+		const { resolve } = await import('node:path');
 		const { existsSync } = await import('node:fs');
 
 		const db = openFileIndexDb(resolveDbPath(cmd.parent?.opts()?.db));
@@ -234,24 +235,7 @@ program
 			return;
 		}
 
-		const files: string[] = [];
-		async function walk(d: string) {
-			const entries = await readdir(d);
-			for (const entry of entries) {
-				const full = join(d, entry);
-				const s = await stat(full);
-				if (s.isDirectory() && opts.recursive) {
-					await walk(full);
-				} else if (s.isFile()) {
-					const ext = extname(entry).toLowerCase().replace(/^\./, '');
-					if (exts.includes(ext)) {
-						files.push(full);
-					}
-				}
-			}
-		}
-		await walk(root);
-
+		const files = await walk(root, { extensions: exts, maxDepth: opts.recursive ? Infinity : 0 });
 		let registered = 0;
 		let skipped = 0;
 		for (const filePath of files) {

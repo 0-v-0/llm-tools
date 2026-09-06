@@ -1,7 +1,7 @@
-import { processImage, createProvider, resolveProviderConfig, AppError } from '@llm-image/shared';
+import { processImage, createProvider, resolveProviderConfig, walk, AppError } from '@llm-image/shared';
 import { Command } from 'commander';
 import { limitAsync } from 'es-toolkit';
-import { readdir, stat } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadEnv } from '../config/env.js';
@@ -25,30 +25,15 @@ interface BatchEntry {
 }
 
 async function collectImages(dir: string, recursive: boolean, include: string): Promise<string[]> {
-	const images: string[] = [];
 	const extensions = include
 		.replace(/[{}]/g, '')
 		.split(',')
-		.map((e) => e.trim().toLowerCase());
-
-	async function walk(d: string) {
-		const entries = await readdir(d);
-		for (const entry of entries) {
-			const fullPath = join(d, entry);
-			const s = await stat(fullPath);
-			if (s.isDirectory() && recursive) {
-				await walk(fullPath);
-			} else if (s.isFile()) {
-				const ext = entry.split('.').pop()?.toLowerCase();
-				if (ext && extensions.includes(ext)) {
-					images.push(fullPath);
-				}
-			}
-		}
-	}
-
-	await walk(dir);
-	return images;
+		.map((e) => e.trim().toLowerCase())
+		.filter(Boolean);
+	return walk(dir, {
+		extensions,
+		maxDepth: recursive ? Infinity : 0,
+	});
 }
 
 export const valueCommand = new Command('value')
