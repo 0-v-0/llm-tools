@@ -4,10 +4,10 @@ import { z } from 'zod';
 const envSchema = z.object({
 	OPENAI_API_BASE: z.string().default('https://api.openai.com/v1'),
 	OPENAI_API_KEY: z.string().optional(),
-	OPENAI_MODEL: z.string().default('gpt-4o'),
+	OPENAI_MODEL: z.string().default('gpt-5.6-luna'),
 
 	ANTHROPIC_API_KEY: z.string().optional(),
-	ANTHROPIC_MODEL: z.string().default('claude-sonnet-4-5-20250929'),
+	ANTHROPIC_MODEL: z.string().default('claude-sonnet-5'),
 	ANTHROPIC_API_BASE: z.string().optional(),
 
 	IMGDATA_DIR: z.string().optional(),

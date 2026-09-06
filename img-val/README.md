@@ -60,9 +60,9 @@ LLM 提供商与数据目录通过环境变量配置：
 |------|--------|------|
 | `OPENAI_API_BASE` | `https://api.openai.com/v1` | OpenAI 兼容 API 地址 |
 | `OPENAI_API_KEY` | — | OpenAI API 密钥 |
-| `OPENAI_MODEL` | `gpt-4o` | 模型名称 |
+| `OPENAI_MODEL` | `gpt-5.6-luna` | 模型名称 |
 | `ANTHROPIC_API_KEY` | — | Anthropic API 密钥 |
-| `ANTHROPIC_MODEL` | `claude-sonnet-4-5-20250929` | 模型名称 |
+| `ANTHROPIC_MODEL` | `claude-sonnet-5` | 模型名称 |
 | `IMGDATA_DIR` | `~/.img-data` | 统一数据目录（三工具共用，配置文件与数据库均存放于此，img-val 使用其中的 `imgval.toml` 与 `imgval.db`） |
 
 ## 配置文件
@@ -78,16 +78,13 @@ LLM 提供商与数据目录通过环境变量配置：
 provider = "openai"   # 可选；未设置时按已配置的 apiKey 自动选择（双方都在→报错，都没有→报错）
 
 [llm.openai]
-apiBase = "https://api.openai.com/v1"   # 缺失时回退 OPENAI_API_BASE 环境变量
-apiKey = "sk-..."                        # 缺失时回退 OPENAI_API_KEY 环境变量
-model = "gpt-4o"                         # 缺失时回退 OPENAI_MODEL 环境变量
-visionDetail = "high"                    # 仅配置（默认 high，无环境变量）
+apiBase = "https://api.openai.com/v1"
+model = "gpt-5.6-luna"
+visionDetail = "high"
 
 [llm.anthropic]
-apiKey = "sk-ant-..."                    # 缺失时回退 ANTHROPIC_API_KEY 环境变量
-model = "claude-sonnet-4-5-20250929"     # 缺失时回退 ANTHROPIC_MODEL 环境变量
-apiBase = ""                             # 缺失时回退 ANTHROPIC_API_BASE 环境变量（可选）
-
+model = "claude-sonnet-5"
+apiBase = ""
 standardsDir = "~/.img-data/standards"   # 估值标准目录
 storeRaw = true                          # 是否存储 LLM 原始回复文本
 maxImageDimension = 1568                 # 送入 LLM 前最长边像素限制

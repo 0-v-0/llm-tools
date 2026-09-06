@@ -45,7 +45,7 @@ function makeInsert(overrides: Partial<ValuationInsert> = {}): ValuationInsert {
 		currency: 'CNY',
 		standardName: 'default-photo',
 		standardVersion: '1.0.0',
-		llmModel: 'openai/gpt-4o',
+		llmModel: 'openai/gpt-5.6-luna',
 		description: '一张风景照片',
 		notes: [],
 		toolUsed: false,

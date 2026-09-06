@@ -5,23 +5,22 @@ import { z } from 'zod';
 import { getConfigPath } from './paths.js';
 
 const configSchema = z.object({
-	// LLM provider 配置（配置优先，环境变量回退；visionDetail 仅配置）。
-	llm: createLlmConfigSchema('high'),
-	/** 每个批次中图片的数量 n，LLM 从中选 1 张最值得保留。默认 2。 */
+	// LLM provider 配置（非密钥字段：显式设置的环境变量优先）
+	/** 每个批次中图片的数量 n，LLM 从中选 1 张最值得保留。默认 2 */
 	batchSize: z.number().int().min(2).default(2),
-	/** 送入 LLM 前最长边像素限制。与 img-val 一致。 */
+	/** 送入 LLM 前最长边像素限制。与 img-val 一致 */
 	maxImageDimension: z.number().int().positive().default(1568),
-	/** 估值分桶边界（按 max_value）。默认对应 default-photo 标准参考价格区间。 */
+	/** 估值分桶边界（按 max_value）。默认对应 default-photo 标准参考价格区间 */
 	bucketBoundaries: z.array(z.number().nonnegative()).default([0, 30, 100, 500, 2000, 5000, 15000]),
-	/** LLM 工具调用最大轮次（保留以备扩展，当前不使用工具）。 */
+	/** LLM 工具调用最大轮次（保留以备扩展，当前不使用工具） */
 	maxToolRounds: z.number().int().positive().default(4),
-	/** 是否存储 LLM 原始回复（用于审计）。 */
+	/** 是否存储 LLM 原始回复（用于审计） */
 	storeRaw: z.boolean().default(false),
-	/** 失败日志目录。 */
+	/** 失败日志目录 */
 	failLogDir: z.string().optional(),
-	/** 自定义 checkpoint 路径；未设则使用 <IMGDATA_DIR>/imgcleanup-checkpoint.json。相对路径以 IMGDATA_DIR 为基准。 */
+	/** 自定义 checkpoint 路径；未设则使用 <IMGDATA_DIR>/imgcleanup-checkpoint.json。相对路径以 IMGDATA_DIR 为基准 */
 	checkpointPath: z.string().optional(),
-	/** 是否启用中断恢复 checkpoint。 */
+	/** 是否启用中断恢复 checkpoint */
 	checkpointEnabled: z.boolean().default(true),
 });
 

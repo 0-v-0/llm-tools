@@ -15,17 +15,17 @@ export interface Candidate {
 }
 
 export interface ExpectationDecodeResult {
-	/** 对所有有效路径按路径概率求得的数值期望。 */
+	/** 对所有有效路径按路径概率求得的数值期望 */
 	value: number;
-	/** 路径概率加权的平均 token logprob（与 meanLogprobForValue 同量纲，便于 A/B 对比）；无则 null。 */
+	/** 路径概率加权的平均 token logprob（与 meanLogprobForValue 同量纲，便于 A/B 对比）；无则 null */
 	logprob: number | null;
-	/** 最自信（路径概率最高）候选的置信；无则 null。 */
+	/** 最自信（路径概率最高）候选的置信；无则 null */
 	confidence: Confidence | null;
-	/** 最自信候选的表述；无则 null。 */
+	/** 最自信候选的表述；无则 null */
 	rationale: string | null;
-	/** 进入期望计算的合法路径数。 */
+	/** 进入期望计算的合法路径数 */
 	usedPaths: number;
-	/** 被"有效性掩码"丢弃的非法路径数。 */
+	/** 被"有效性掩码"丢弃的非法路径数 */
 	discardedPaths: number;
 }
 
@@ -81,9 +81,9 @@ export function expectationDecode(candidates: Candidate[]): ExpectationDecodeRes
 }
 
 export interface PathDecodeOptions {
-	/** 每个位置保留的 top-k 候选（受 OpenAI 上限 20 约束）。 */
+	/** 每个位置保留的 top-k 候选（受 OpenAI 上限 20 约束） */
 	topK?: number;
-	/** 最大组合数上限，防止多 token 数值的笛卡尔积爆炸。 */
+	/** 最大组合数上限，防止多 token 数值的笛卡尔积爆炸 */
 	maxCandidates?: number;
 }
 

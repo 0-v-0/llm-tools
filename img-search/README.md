@@ -68,7 +68,7 @@ pnpm install
 ```env
 # LLM（问题生成）
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o
+OPENAI_MODEL=gpt-5.6-luna
 
 # Embedding（Jina CLIP v2）
 JINA_API_KEY=jina_...
@@ -86,9 +86,9 @@ LLM 提供商、向量库与数据库目录通过环境变量配置。其中 `OP
 | 变量                | 默认值                       | 说明                              |
 | ------------------- | ---------------------------- | --------------------------------- |
 | `OPENAI_API_KEY`    | —                            | OpenAI API 密钥                   |
-| `OPENAI_MODEL`      | `gpt-4o`                     | OpenAI 模型                       |
+| `OPENAI_MODEL`      | `gpt-5.6-luna`                     | OpenAI 模型                       |
 | `ANTHROPIC_API_KEY` | —                            | Anthropic API 密钥                |
-| `ANTHROPIC_MODEL`   | `claude-sonnet-4-5-20250929` | Anthropic 模型                    |
+| `ANTHROPIC_MODEL`   | `claude-sonnet-5` | Anthropic 模型                    |
 | `JINA_API_KEY`      | —                            | Jina AI API 密钥                  |
 | `JINA_MODEL`        | `jina-clip-v2`               | embedding 模型                    |
 | `JINA_API_BASE`     | `https://api.jina.ai/v1`     | Jina API 地址                     |
@@ -109,15 +109,13 @@ LLM 提供商、向量库与数据库目录通过环境变量配置。其中 `OP
 provider = "openai"   # 可选；未设置时按已配置的 apiKey 自动选择（双方都在→报错，都没有→报错）
 
 [llm.openai]
-apiBase = "https://api.openai.com/v1"   # 缺失时回退 OPENAI_API_BASE 环境变量
-apiKey = "sk-..."                        # 缺失时回退 OPENAI_API_KEY 环境变量
-model = "gpt-4o"                         # 缺失时回退 OPENAI_MODEL 环境变量
-visionDetail = "low"                     # 仅配置（默认 low，无环境变量）
+apiBase = "https://api.openai.com/v1"
+model = "gpt-5.6-luna"
+visionDetail = "low"
 
 [llm.anthropic]
-apiKey = "sk-ant-..."                    # 缺失时回退 ANTHROPIC_API_KEY 环境变量
-model = "claude-sonnet-4-5-20250929"     # 缺失时回退 ANTHROPIC_MODEL 环境变量
-apiBase = ""                             # 缺失时回退 ANTHROPIC_API_BASE 环境变量（可选）
+model = "claude-sonnet-5"
+apiBase = ""
 
 alpha = 0.5              # 文本/视觉相似度 blend 权重 (0~1)
 lambda = 8               # 似然核锐度，越大越尖锐

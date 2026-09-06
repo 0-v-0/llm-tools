@@ -568,13 +568,11 @@ provider = "openai"
 
 [llm.openai]
 apiBase = "https://api.openai.com/v1"
-apiKey = "sk-..."
-model = "gpt-4o"
+model = "gpt-5.6-luna"
 visionDetail = "high"
 
 [llm.anthropic]
-apiKey = "sk-ant-..."
-model = "claude-sonnet-4-5-20250929"
+model = "claude-sonnet-5"
 apiBase = ""
 
 standardsDir = "~/.img-data/classify-standards"

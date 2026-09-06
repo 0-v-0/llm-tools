@@ -4,8 +4,7 @@ LLM 驱动的图片重命名与聚类工具，已纳入 llm-tools 统一框架�
 
 - **commander CLI**（`imgrenamer` 二进制），TS 实现。
 - 复用 [`@llm-image/shared`](../shared/README.md) 的 LLM provider（`createProvider` / `resolveProviderConfig` / `createLlmConfigSchema`）与图片处理（`processImage`）。
-- 配置走统一数据目录 `~/.img-data/imgrenamer.toml`（`IMGDATA_DIR` 可重定位），`[llm]` 段与 img-val / img-search / img-cleanup 一致（配置优先、环境变量回退）。
-
+- 配置走统一数据目录 `~/.img-data/imgrenamer.toml`（`IMGDATA_DIR` 可重定位），`[llm]` 段与 img-val / img-search / img-cleanup 一致（非密钥字段：显式设置的环境变量优先，否则配置文件优先、再回退环境变量默认值）。
 ## 子命令
 
 ### `rename` — LLM 重命名图片
@@ -63,14 +62,14 @@ imgrenamer cluster -n 5 --metric aspect-ratio --dry-run
 [llm]
 provider = "openai"          # 可选；缺省按环境变量密钥自动选择
 openai.apiBase = "https://api.openai.com/v1"
-openai.model = "gpt-4o"
+openai.model = "gpt-5.6-luna"
 
 maxImageDimension = 1568     # 送 LLM 前最长边限制
 concurrency = 2              # rename 并发数
 timeoutSeconds = 60          # LLM 超时（秒）
 ```
 
-- LLM 密钥仅从环境变量读取（`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`），不写入配置文件。
+- LLM 密钥仅从环境变量读取（`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`）。
 - `cluster --metric name` 需要 OpenAI 兼容的 embedding 端点（默认模型 `text-embedding-3-small`，可用环境变量 `OPENAI_EMBEDDING_MODEL` 覆盖）。
 
 ## 开发
