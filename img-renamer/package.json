@@ -1,18 +1,33 @@
 {
 	"name": "img-renamer",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"private": true,
-	"description": "LLM 驱动的图片重命名与聚类脚本（保留原有 JS 入口，未纳入 img-* 统一框架）",
-	"license": "Apache-2.0",
-	"author": "0-v-0 <kduice@qq.com>",
+	"description": "LLM 驱动的图片重命名与聚类 CLI（commander + @llm-image/shared）",
 	"type": "module",
-	"main": "classifier.js",
+	"bin": {
+		"imgrenamer": "./dist/index.js"
+	},
+	"main": "./dist/index.js",
+	"scripts": {
+		"build": "pnpm --filter @llm-image/shared build && tsc -p tsconfig.build.json",
+		"dev": "tsx src/index.ts",
+		"start": "node dist/index.js",
+		"typecheck": "tsc --noEmit"
+	},
 	"dependencies": {
+		"@llm-image/shared": "workspace:*",
+		"commander": "^15.0.0",
 		"image-size": "^2.0.2",
-		"minimist": "^1.2.8",
-		"openai": "^6.49.0"
+		"openai": "^6.49.0",
+		"smol-toml": "^1.8.0",
+		"zod": "^4.5.4"
 	},
 	"devDependencies": {
-		"@types/node": "^25.9.5"
+		"@types/node": "^26.4.0",
+		"tsx": "^4.23.12",
+		"typescript": "^7.0.2"
+	},
+	"engines": {
+		"node": ">=22.0.0"
 	}
 }
