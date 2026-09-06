@@ -1,7 +1,7 @@
 CREATE TABLE image_import (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  source_path TEXT NOT NULL UNIQUE,
-  hash TEXT NOT NULL,
+  blake3 TEXT NOT NULL,
+  hash   TEXT NOT NULL UNIQUE,
   status TEXT NOT NULL CHECK(status IN ('pending','processing','embedded','indexed','failed')),
   qdrant_point_id TEXT,
   text_description TEXT,
@@ -12,4 +12,5 @@ CREATE TABLE image_import (
 );
 
 CREATE INDEX idx_import_status ON image_import(status);
-CREATE INDEX idx_import_hash ON image_import(hash);
+CREATE INDEX idx_import_blake3 ON image_import(blake3);
+CREATE INDEX idx_import_hash   ON image_import(hash);
