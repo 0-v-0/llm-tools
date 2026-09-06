@@ -80,7 +80,7 @@ describe('loadConfig', () => {
 
 	it('llm.openai 段从 TOML 读取并覆盖默认 visionDetail', () => {
 		writeFileSync(
-			join(dir, 'config.toml'),
+			join(dir, 'imgsearch.toml'),
 			'[llm.openai]\napiBase = "https://my.proxy/v1"\nmodel = "gpt-5.4-mini"\nvisionDetail = "high"\n',
 		);
 		const config = loadConfig();
@@ -90,7 +90,7 @@ describe('loadConfig', () => {
 	});
 
 	it('llm.openai 部分字段：已设置取配置，缺失保持 undefined（环境变量回退）', () => {
-		writeFileSync(join(dir, 'config.toml'), '[llm.openai]\napiBase = "https://my.proxy/v1"\n');
+		writeFileSync(join(dir, 'imgsearch.toml'), '[llm.openai]\napiBase = "https://my.proxy/v1"\n');
 		const config = loadConfig();
 		expect(config.llm.openai.apiBase).toBe('https://my.proxy/v1');
 		expect(config.llm.openai.model).toBeUndefined();

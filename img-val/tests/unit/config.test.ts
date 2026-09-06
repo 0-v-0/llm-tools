@@ -70,7 +70,7 @@ describe('loadConfig', () => {
 
 	it('llm.openai 段从 TOML 读取并覆盖默认 visionDetail', () => {
 		writeFileSync(
-			join(dir, 'config.toml'),
+			join(dir, 'imgval.toml'),
 			'[llm.openai]\napiBase = "https://my.proxy/v1"\nmodel = "gpt-5.4-mini"\nvisionDetail = "low"\n',
 		);
 		const config = loadConfig();
@@ -80,7 +80,7 @@ describe('loadConfig', () => {
 	});
 
 	it('llm.openai 部分字段：已设置取配置，缺失保持 undefined（环境变量回退）', () => {
-		writeFileSync(join(dir, 'config.toml'), '[llm.openai]\napiBase = "https://my.proxy/v1"\n');
+		writeFileSync(join(dir, 'imgval.toml'), '[llm.openai]\napiBase = "https://my.proxy/v1"\n');
 		const config = loadConfig();
 		expect(config.llm.openai.apiBase).toBe('https://my.proxy/v1');
 		expect(config.llm.openai.model).toBeUndefined();
@@ -91,7 +91,7 @@ describe('loadConfig', () => {
 
 	it('llm.anthropic 段从 TOML 读取', () => {
 		writeFileSync(
-			join(dir, 'config.toml'),
+			join(dir, 'imgval.toml'),
 			'[llm.anthropic]\nmodel = "claude-opus"\n',
 		);
 		const config = loadConfig();
@@ -101,7 +101,7 @@ describe('loadConfig', () => {
 
 	it('llm.provider 段：默认未设置；显式设置时从 TOML 读取', () => {
 		expect(loadConfig().llm.provider).toBeUndefined();
-		writeFileSync(join(dir, 'config.toml'), '[llm]\nprovider = "anthropic"\n');
+		writeFileSync(join(dir, 'imgval.toml'), '[llm]\nprovider = "anthropic"\n');
 		expect(loadConfig().llm.provider).toBe('anthropic');
 	});
 });
