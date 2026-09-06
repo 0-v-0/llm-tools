@@ -120,7 +120,7 @@ export async function valuate(req: ValuationRequest): Promise<ValuationResult> {
 			config,
 			sizeResult,
 			parsed,
-			llmModel: `${env.LLM_PROVIDER}/${provider.model}`,
+			llmModel: `${provider.provider}/${provider.model}`,
 			flowResult,
 		});
 	} catch (e) {
@@ -144,7 +144,7 @@ export async function valuate(req: ValuationRequest): Promise<ValuationResult> {
 				},
 				standardName: standard.frontmatter.name,
 				standardVersion: standard.contentHash,
-				model: `${env.LLM_PROVIDER}/${provider.model}`,
+				model: `${provider.provider}/${provider.model}`,
 				enableTools,
 				systemPrompt,
 				userMessages,
