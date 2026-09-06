@@ -81,11 +81,11 @@ describe('loadConfig', () => {
 	it('llm.openai 段从 TOML 读取并覆盖默认 visionDetail', () => {
 		writeFileSync(
 			join(dir, 'imgsearch.toml'),
-			'[llm.openai]\napiBase = "https://my.proxy/v1"\nmodel = "gpt-4o-mini"\nvisionDetail = "high"\n',
+			'[llm.openai]\napiBase = "https://my.proxy/v1"\nmodel = "gpt-5.4-mini"\nvisionDetail = "high"\n',
 		);
 		const config = loadConfig();
 		expect(config.llm.openai.apiBase).toBe('https://my.proxy/v1');
-		expect(config.llm.openai.model).toBe('gpt-4o-mini');
+		expect(config.llm.openai.model).toBe('gpt-5.4-mini');
 		expect(config.llm.openai.visionDetail).toBe('high');
 	});
 

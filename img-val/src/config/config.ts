@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { getConfigPath, getStandardsDir } from './paths.js';
 
 const configSchema = z.object({
-	// LLM provider 配置（配置优先，环境变量回退；visionDetail 仅配置）。
+	// LLM provider 配置
 	llm: createLlmConfigSchema('high'),
 	standardsDir: z.string().default(getStandardsDir()),
 	storeRaw: z.boolean().default(true),

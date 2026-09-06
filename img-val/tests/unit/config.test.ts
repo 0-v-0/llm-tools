@@ -71,11 +71,11 @@ describe('loadConfig', () => {
 	it('llm.openai 段从 TOML 读取并覆盖默认 visionDetail', () => {
 		writeFileSync(
 			join(dir, 'imgval.toml'),
-			'[llm.openai]\napiBase = "https://my.proxy/v1"\nmodel = "gpt-4o-mini"\nvisionDetail = "low"\n',
+			'[llm.openai]\napiBase = "https://my.proxy/v1"\nmodel = "gpt-5.4-mini"\nvisionDetail = "low"\n',
 		);
 		const config = loadConfig();
 		expect(config.llm.openai.apiBase).toBe('https://my.proxy/v1');
-		expect(config.llm.openai.model).toBe('gpt-4o-mini');
+		expect(config.llm.openai.model).toBe('gpt-5.4-mini');
 		expect(config.llm.openai.visionDetail).toBe('low');
 	});
 
@@ -118,8 +118,8 @@ describe('resolveProviderConfig (LLM provider 选择)', () => {
 	function env(openaiKey?: string, anthropicKey?: string): ProviderEnv {
 		return {
 			OPENAI_API_BASE: 'https://api.openai.com/v1',
-			OPENAI_MODEL: 'gpt-4o',
-			ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929',
+			OPENAI_MODEL: 'gpt-5.6-luna',
+			ANTHROPIC_MODEL: 'claude-sonnet-5',
 			OPENAI_API_KEY: openaiKey,
 			ANTHROPIC_API_KEY: anthropicKey,
 		} as unknown as ProviderEnv;
@@ -171,5 +171,62 @@ describe('resolveProviderConfig (LLM provider 选择)', () => {
 		expect(cfg.LLM_PROVIDER).toBe('openai');
 		expect(cfg.OPENAI_API_KEY).toBe('env-openai');
 		expect(cfg.ANTHROPIC_API_KEY).toBeUndefined();
+	});
+
+	it('环境变量优先于配置文件中的非密钥字段', () => {
+		// 设置环境变量
+		const originalOpenaiApiBase = process.env.OPENAI_API_BASE;
+		const originalOpenaiModel = process.env.OPENAI_MODEL;
+		const originalAnthropicModel = process.env.ANTHROPIC_MODEL;
+		const originalAnthropicApiBase = process.env.ANTHROPIC_API_BASE;
+
+		try {
+			process.env.OPENAI_API_BASE = 'https://env-openai-proxy/v1';
+			process.env.OPENAI_MODEL = 'env-gpt-5.6-luna';
+			process.env.ANTHROPIC_MODEL = 'env-claude-opus';
+			process.env.ANTHROPIC_API_BASE = 'https://env-anthropic-proxy/v1';
+
+			const llm = {
+				openai: {
+					apiBase: 'https://config-openai-proxy/v1',
+					model: 'config-gpt-5.6-luna',
+					visionDetail: 'high',
+				},
+				anthropic: {
+					model: 'config-claude-opus',
+					apiBase: 'https://config-anthropic-proxy/v1',
+				},
+			} as unknown as LlmConfig;
+
+			const envObj = env('openai-key', 'anthropic-key');
+			const cfg = resolveProviderConfig(llm, envObj);
+
+			expect(cfg.OPENAI_API_BASE).toBe('https://env-openai-proxy/v1');
+			expect(cfg.OPENAI_MODEL).toBe('env-gpt-5.6-luna');
+			expect(cfg.ANTHROPIC_MODEL).toBe('env-claude-opus');
+			expect(cfg.ANTHROPIC_API_BASE).toBe('https://env-anthropic-proxy/v1');
+		} finally {
+			// 清理环境变量
+			if (originalOpenaiApiBase === undefined) {
+				delete process.env.OPENAI_API_BASE;
+			} else {
+				process.env.OPENAI_API_BASE = originalOpenaiApiBase;
+			}
+			if (originalOpenaiModel === undefined) {
+				delete process.env.OPENAI_MODEL;
+			} else {
+				process.env.OPENAI_MODEL = originalOpenaiModel;
+			}
+			if (originalAnthropicModel === undefined) {
+				delete process.env.ANTHROPIC_MODEL;
+			} else {
+				process.env.ANTHROPIC_MODEL = originalAnthropicModel;
+			}
+			if (originalAnthropicApiBase === undefined) {
+				delete process.env.ANTHROPIC_API_BASE;
+			} else {
+				process.env.ANTHROPIC_API_BASE = originalAnthropicApiBase;
+			}
+		}
 	});
 });

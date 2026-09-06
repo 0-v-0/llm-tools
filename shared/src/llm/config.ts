@@ -59,8 +59,8 @@ export interface ProviderEnv {
 /**
  * 将 TOML `[llm]` 配置（非密钥字段）与环境变量（密钥 + 回退）合并为 `ProviderConfig`。
  *
- * - `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`：仅来自环境变量（不从配置文件读取）。
- * - `apiBase` / `model` 等非密钥字段：配置有值则用配置，否则回退环境变量。
+ * - `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`：仅来自环境变量。
+ * - `apiBase` / `model` 等非密钥字段：环境变量优先于配置文件（如果环境变量已设置）
  * - `provider`：显式设置时直接使用；未设置时按环境变量中的 apiKey 自动
  *   选择——仅一方有密钥选该方，双方都有则报错（无法自动取舍），都没有则报错。
  *
@@ -92,12 +92,12 @@ export function resolveProviderConfig(llm: LlmConfig, env: ProviderEnv): Provide
 
 	return {
 		LLM_PROVIDER: provider,
-		OPENAI_API_BASE: llm.openai.apiBase ?? env.OPENAI_API_BASE,
+		OPENAI_API_BASE: env.OPENAI_API_BASE || llm.openai.apiBase || '',
 		OPENAI_API_KEY: openaiApiKey,
-		OPENAI_MODEL: llm.openai.model ?? env.OPENAI_MODEL,
+		OPENAI_MODEL: env.OPENAI_MODEL || llm.openai.model || '',
 		OPENAI_VISION_DETAIL: llm.openai.visionDetail,
 		ANTHROPIC_API_KEY: anthropicApiKey,
-		ANTHROPIC_MODEL: llm.anthropic?.model ?? env.ANTHROPIC_MODEL,
-		ANTHROPIC_API_BASE: llm.anthropic?.apiBase ?? env.ANTHROPIC_API_BASE,
+		ANTHROPIC_MODEL: env.ANTHROPIC_MODEL || llm.anthropic?.model || '',
+		ANTHROPIC_API_BASE: env.ANTHROPIC_API_BASE || llm.anthropic?.apiBase || '',
 	};
 }

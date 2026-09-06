@@ -54,7 +54,7 @@ LLM 提供商与数据库目录通过环境变量配置：
 |------|--------|------|
 | `OPENAI_API_BASE` | `https://api.openai.com/v1` | OpenAI 兼容 API 地址 |
 | `OPENAI_API_KEY` | — | OpenAI API 密钥 |
-| `OPENAI_MODEL` | `gpt-4o` | 模型名称 |
+| `OPENAI_MODEL` | `gpt-5.6-luna` | 模型名称 |
 | `ANTHROPIC_API_KEY` | — | Anthropic API 密钥 |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-5-20250929` | 模型名称 |
 | `IMGVAL_DB_DIR` | `~/.imgval` | 数据库目录（配置文件也存放于此） |
@@ -70,10 +70,9 @@ LLM 提供商与数据库目录通过环境变量配置：
 provider = "openai"   # 可选；未设置时按已配置的 apiKey 自动选择（双方都在→报错，都没有→报错）
 
 [llm.openai]
-apiBase = "https://api.openai.com/v1"   # 缺失时回退 OPENAI_API_BASE 环境变量
-apiKey = "sk-..."                        # 缺失时回退 OPENAI_API_KEY 环境变量
-model = "gpt-4o"                         # 缺失时回退 OPENAI_MODEL 环境变量
-visionDetail = "high"                    # 仅配置（默认 high，无环境变量）
+apiBase = "https://api.openai.com/v1"
+model = "gpt-5.6-luna"
+visionDetail = "high"
 
 [llm.anthropic]
 apiKey = "sk-ant-..."                    # 缺失时回退 ANTHROPIC_API_KEY 环境变量
