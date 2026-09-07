@@ -62,7 +62,7 @@ LLM 提供商与数据目录通过环境变量配置：
 | `OPENAI_API_KEY` | — | OpenAI API 密钥 |
 | `OPENAI_MODEL` | `gpt-5.6-luna` | 模型名称 |
 | `ANTHROPIC_API_KEY` | — | Anthropic API 密钥 |
-| `ANTHROPIC_MODEL` | `claude-sonnet-4-5-20250929` | 模型名称 |
+| `ANTHROPIC_MODEL` | `claude-sonnet-5` | 模型名称 |
 | `IMGDATA_DIR` | `~/.img-data` | 统一数据目录（三工具共用，配置文件与数据库均存放于此，img-val 使用其中的 `imgval.toml` 与 `imgval.db`） |
 
 ## 配置文件
@@ -84,7 +84,7 @@ visionDetail = "high"
 
 [llm.anthropic]
 apiKey = "sk-ant-..."                    # 缺失时回退 ANTHROPIC_API_KEY 环境变量
-model = "claude-sonnet-4-5-20250929"     # 缺失时回退 ANTHROPIC_MODEL 环境变量
+model = "claude-sonnet-5"     # 缺失时回退 ANTHROPIC_MODEL 环境变量
 apiBase = ""                             # 缺失时回退 ANTHROPIC_API_BASE 环境变量（可选）
 
 standardsDir = "~/.img-data/standards"   # 估值标准目录
@@ -110,8 +110,8 @@ pathTopK = 20                            # 路径解码每个位置保留的候�
 自动识别：传入文件路径则单张估值，传入目录则批量处理。
 
 ```
-imgval <path> [--standard <name|path>] [--json] [--no-tools] [--verbose]
-imgval <dir>  [--standard <name|path>] [--concurrency N] [--include <glob>] [--recursive] [--json] [--progress] [--mode <full|skip|sync>] [--no-tools] [--verbose]
+imgval <path> [--standard <name|path>] [--format <text|json>] [--no-tools] [--verbose]
+imgval <dir>  [--standard <name|path>] [--concurrency N] [--include <glob>] [--recursive] [--format <text|json>] [--progress] [--mode <full|skip|sync>] [--no-tools] [--verbose]
 ```
 
 通用参数：
