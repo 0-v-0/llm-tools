@@ -1,19 +1,17 @@
 import type { LLMProvider } from '@llm-image/shared';
-import type { FileIndexRepo } from '@llm-image/file-index';
+import { fileUrlToPath, type FileIndexRepo } from '@llm-image/file-index';
 import type { EmbeddingProvider } from '../embedding/provider.js';
-import type { QdrantStore } from '../storage/qdrant.js';
+import type { QdrantHit, QdrantStore, RetrievedVectors } from '../storage/qdrant.js';
 import { getFileIndexRepo } from '../fileindex.js';
-import { fileUrlToPath } from '@llm-image/file-index';
 import type { ParsedQuestion } from './question-parser.js';
 import type { CandidateInfo, QuestionHistoryEntry } from './question-prompt.js';
 import {
 	cosineSim01,
+	scoreCandidate,
 	bayesianUpdate,
 	normalize,
-	entropy,
 	expectedInfoGain,
 	candidateDiversity,
-	temperPosterior,
 	DEFAULT_BINS,
 } from './bayes.js';
 import { Beam } from './beam.js';
@@ -30,13 +28,8 @@ export interface SearchAlgorithmDeps {
 
 export interface SearchOptions {
 	hint?: string;
-	showThumbnails?: boolean;
 	onQuestion?: (question: ParsedQuestion, candidates: SearchResult[]) => void;
 	onRoundStart?: (round: number, candidateCount: number) => void;
-}
-
-export interface SearchAnswer {
-	answer: number | 'unknown';
 }
 
 export interface SearchResultWithDescription extends SearchResult {
@@ -44,18 +37,55 @@ export interface SearchResultWithDescription extends SearchResult {
 	sourcePath?: string;
 }
 
+/** 置信度终止阈值（could be configurable） */
+const CONFIDENCE_THRESHOLD = 0.9;
+/** 达到最大轮数时，最大概率低于此值判定目标不在图库中 */
+const NOT_IN_LIBRARY_THRESHOLD = 0.5;
+/** 候选集多样性低于此值视为同质（无法继续区分） */
+const HOMOGENEOUS_DIVERSITY_THRESHOLD = 0.1;
+/**
+ * 与已跳过问题相似度高于此值的问题视为重复提问。
+ * 注意：applySkippedPenalty 比较的是 cosineSim01 的输出（映射到 [0,1]，即
+ * (cos+1)/2），而 0.7 是按原始余弦值标定的阈值——换算到映射尺度即 (0.7+1)/2。
+ */
+const SKIPPED_SIMILARITY_THRESHOLD = (0.7 + 1) / 2;
+/** 缺失向量候选的中性评分（与 cosineSim01 对零向量的中性输出一致） */
+const NEUTRAL_SCORE = 0.5;
+/** 命中重复提问时对信息增益施加的惩罚系数 */
+const SKIPPED_SIMILARITY_PENALTY = 0.3;
+
+/** 单个候选问题及其期望信息增益与候选评分（供贝叶斯更新复用） */
+interface ScoredQuestion {
+	question: ParsedQuestion;
+	ig: number;
+	scores: Map<number, number>;
+}
+
 /**
  * Core search algorithm — orchestrates the beam search + Bayesian update loop.
  */
 export class SearchAlgorithm {
-	private deps: SearchAlgorithmDeps;
+	private readonly deps: SearchAlgorithmDeps;
+	private readonly fileIndexRepo: FileIndexRepo;
 	private session: SearchSession | null = null;
-	private candidateCache: Map<number, { description: string; blake3: string }> = new Map();
-	private fileIndexRepo: FileIndexRepo;
+	/** blake3 → 候选描述缓存（从 Qdrant payload 提取） */
+	private candidateCache = new Map<number, { description: string; blake3: string }>();
+	/** 下一轮 processAnswer 消耗的评分数据（由 nextQuestion 写入，读取后即清空） */
+	private lastScores: Map<number, number> | null = null;
+	/** 已跳过问题的向量缓存（问题文本 → 向量），避免每轮重复 embed */
+	private skippedVecCache = new Map<string, Float32Array>();
 
 	constructor(deps: SearchAlgorithmDeps) {
 		this.deps = deps;
 		this.fileIndexRepo = deps.fileIndexRepo ?? getFileIndexRepo();
+	}
+
+	/** 断言会话已初始化并返回它 */
+	private requireSession(): SearchSession {
+		if (!this.session) {
+			throw new Error('Session not initialized');
+		}
+		return this.session;
 	}
 
 	/**
@@ -74,48 +104,70 @@ export class SearchAlgorithm {
 	}
 
 	/**
+	 * Cache description + blake3 extracted from Qdrant result payloads.
+	 */
+	private cacheFromPayload(results: Array<{ id: number; payload: Record<string, unknown> }>): void {
+		for (const r of results) {
+			const desc = (r.payload.description as string) ?? '';
+			const blake3 = (r.payload.blake3 as string) ?? '';
+			this.candidateCache.set(r.id, { description: desc, blake3 });
+		}
+	}
+
+	/** 候选描述（缓存缺失时回退到占位文本） */
+	private candidateDescription(id: number): string {
+		return this.candidateCache.get(id)?.description ?? `Image ${id}`;
+	}
+
+	/** 由 Qdrant 结果构建均匀概率 beam，并将候选写入缓存 */
+	private uniformBeamFrom(
+		results: Array<{ id: number; payload: Record<string, unknown> }>,
+		beamSize: number,
+	): Beam {
+		this.cacheFromPayload(results);
+		const beam = new Beam(beamSize);
+		const uniformProb = 1 / results.length;
+		for (const r of results) {
+			beam.set(r.id, uniformProb);
+		}
+		return beam;
+	}
+
+	/**
+	 * Embed the hint text and search Qdrant for the closest points.
+	 */
+	private async searchByHint(hint: string, limit: number): Promise<QdrantHit[]> {
+		const hintVecs = await this.deps.embedding.embedText([hint]);
+		const hintVec = hintVecs[0];
+		if (!hintVec) throw new Error('Embedding returned empty result for hint');
+		return this.deps.qdrant.searchText(hintVec, limit);
+	}
+
+	/**
 	 * Initialize the search session.
 	 * If hint is provided, use Qdrant search to bootstrap the beam.
-	 * Otherwise, use Qdrant scroll for random sampling.
+	 * Otherwise, deterministically take the first beamSize points via Qdrant scroll
+	 * (not random): a hint-free session always bootstraps with the same initial beam.
 	 */
 	async initialize(config: SessionConfig, options: SearchOptions): Promise<void> {
-		const { embedding, qdrant } = this.deps;
-		let initialIds: number[];
+		const initialResults = options.hint
+			? await this.searchByHint(options.hint, config.beamSize)
+			: await this.deps.qdrant.scroll(config.beamSize);
 
-		if (options.hint) {
-			// Embed the hint text and search
-			const hintVecs = await embedding.embedText([options.hint]);
-			const hintVec = hintVecs[0];
-			if (!hintVec) throw new Error('Embedding returned empty result for hint');
-			const results = await qdrant.searchText(hintVec, config.beamSize);
-			initialIds = results.map((r) => r.id);
-
-			// Cache descriptions + blake3 from search results
-			for (const r of results) {
-				const desc = (r.payload.description as string) ?? '';
-				const blake3 = (r.payload.blake3 as string) ?? '';
-				this.candidateCache.set(r.id, { description: desc, blake3 });
-			}
-		} else {
-			// Random sampling via scroll
-			const results = await qdrant.scroll(config.beamSize);
-			initialIds = results.map((r) => r.id);
-
-			for (const r of results) {
-				const desc = (r.payload.description as string) ?? '';
-				const blake3 = (r.payload.blake3 as string) ?? '';
-				this.candidateCache.set(r.id, { description: desc, blake3 });
-			}
+		if (initialResults.length === 0) {
+			throw new Error('图库为空：请先使用 import 命令导入图片');
 		}
 
-		// Initialize beam with uniform probabilities
-		const beam = new Beam(config.beamSize);
-		const uniformProb = 1 / initialIds.length;
-		for (const id of initialIds) {
-			beam.set(id, uniformProb);
-		}
+		this.session = new SearchSession(config, this.uniformBeamFrom(initialResults, config.beamSize));
+	}
 
-		this.session = new SearchSession(config, beam);
+	/** 构建 LLM 问题生成所需的候选信息 */
+	private buildCandidateInfos(topCandidates: Array<{ id: number; prob: number }>): CandidateInfo[] {
+		return topCandidates.map((item) => ({
+			id: item.id,
+			description: this.candidateDescription(item.id),
+			probability: item.prob,
+		}));
 	}
 
 	/**
@@ -123,230 +175,326 @@ export class SearchAlgorithm {
 	 * Returns the question to ask the user, or null if terminated.
 	 */
 	async nextQuestion(options: SearchOptions): Promise<ParsedQuestion | null> {
-		if (!this.session) {
-			throw new Error('Session not initialized');
-		}
-
-		if (this.session.terminated) {
+		const session = this.requireSession();
+		if (session.terminated) {
 			return null;
 		}
-
-		const { llm, embedding, qdrant } = this.deps;
-		const config = this.session.config;
 
 		// Start new round
-		this.session.startRound();
+		session.startRound();
+
+		// PERF: beam vectors are identical for the whole round — retrieve the
+		// full beam's vectors ONCE per round and reuse the id → vector Map for
+		// both the homogeneity check (subset of top candidates) and question
+		// scoring (previously two Qdrant retrieve round trips per round).
+		// Both text and visual vectors are fetched: scoreCandidate blends them
+		// with alpha, so restricting to ['text'] would change scoring semantics.
+		// Qdrant retrieve does not guarantee input order and omits missing ids,
+		// so build an id → vector Map and look up each id.
+		const beamIds = session.beam.ids();
+		const beamVectorList = await this.deps.qdrant.retrieveVectors(beamIds);
+		const beamVectorsById = new Map<number, RetrievedVectors>(
+			beamVectorList.map((v) => [v.id, v]),
+		);
 
 		// Get top candidates for question generation
-		const topCandidates = this.session.beam.topK(50);
-		const candidateInfos: CandidateInfo[] = topCandidates.map((item) => {
-			const cached = this.candidateCache.get(item.id);
-			return {
-				id: item.id,
-				description: cached?.description ?? `Image ${item.id}`,
-				probability: item.prob,
-			};
-		});
+		const topCandidates = session.beam.topK(session.config.topKQuestions);
 
-		// Check candidate diversity
-		const vectors = await qdrant.retrieveVectors(topCandidates.map((c) => c.id));
-		const textVectors = vectors.map((v) => v.text);
-		const diversity = candidateDiversity(textVectors);
-
-		if (diversity < 0.1 && this.session.canTerminateByIG()) {
-			this.session.terminate('homogeneous');
+		if (this.terminateIfHomogeneous(session, topCandidates, beamVectorsById)) {
 			return null;
 		}
 
-		// Generate questions via LLM
-		const questionHistory: QuestionHistoryEntry[] = this.session.history.map((h) => ({
+		const bestQuestion = await this.generateBestQuestion(
+			session,
+			topCandidates,
+			beamIds,
+			beamVectorsById,
+		);
+
+		if (!bestQuestion) {
+			session.terminate('no_questions');
+			return null;
+		}
+
+		// Check if IG is too low
+		if (bestQuestion.ig < session.config.igThreshold && session.canTerminateByIG()) {
+			session.terminate('low_ig');
+			return null;
+		}
+
+		// Notify callback
+		options.onQuestion?.(bestQuestion.question, this.getResults(5));
+
+		// Store scores for processAnswer to consume (cleared after use)
+		this.lastScores = bestQuestion.scores;
+
+		return bestQuestion.question;
+	}
+
+	/**
+	 * Terminate with reason 'homogeneous' when the top candidates are too alike
+	 * to tell apart (and the minimum number of rounds has been played).
+	 * Returns true if the session was terminated.
+	 */
+	private terminateIfHomogeneous(
+		session: SearchSession,
+		topCandidates: Array<{ id: number; prob: number }>,
+		beamVectorsById: Map<number, RetrievedVectors>,
+	): boolean {
+		// Qdrant retrieve silently omits missing ids — only trust the diversity
+		// check when every requested vector came back. Otherwise a data problem
+		// (0/1 vectors) would masquerade as a "homogeneous" candidate set and
+		// falsely terminate the session.
+		const vectors: Float32Array[] = [];
+		let missing = 0;
+		for (const c of topCandidates) {
+			const v = beamVectorsById.get(c.id);
+			if (!v) {
+				missing++;
+				continue;
+			}
+			vectors.push(v.text);
+		}
+		if (missing > 0) {
+			console.warn(
+				`同质性检查跳过：${missing}/${topCandidates.length} 个候选向量缺失，Qdrant 数据可能不完整`,
+			);
+			return false;
+		}
+
+		const diversity = candidateDiversity(vectors);
+
+		if (diversity < HOMOGENEOUS_DIVERSITY_THRESHOLD && session.canTerminateByIG()) {
+			session.terminate('homogeneous');
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Generate candidate questions via the LLM and pick the most informative one.
+	 * Returns null when the LLM produced no questions or all were skipped before.
+	 */
+	private async generateBestQuestion(
+		session: SearchSession,
+		topCandidates: Array<{ id: number; prob: number }>,
+		beamIds: number[],
+		beamVectorsById: Map<number, RetrievedVectors>,
+	): Promise<ScoredQuestion | null> {
+		const questionHistory: QuestionHistoryEntry[] = session.history.map((h) => ({
 			question: h.question.question,
 			answer: h.answer,
 		}));
 
 		const questions = await generateQuestions({
-			llm,
-			candidates: candidateInfos,
+			llm: this.deps.llm,
+			candidates: this.buildCandidateInfos(topCandidates),
 			history: questionHistory,
-			showThumbnails: options.showThumbnails ?? false,
+			maxQuestions: session.config.candidateQuestions,
 		});
 
 		if (questions.length === 0) {
-			this.session.terminate('low_ig');
 			return null;
 		}
 
-		// Compute expected information gain for each question
-		const questionIGs: Array<{
-			question: ParsedQuestion;
-			ig: number;
-			scores: Map<number, number>;
-		}> = [];
+		return this.selectBestQuestion(questions, beamIds, beamVectorsById);
+	}
 
-		for (const q of questions) {
-			// Skip if this question was already asked and answered "unknown"
-			if (this.session.skippedQuestions.includes(q.question)) {
-				continue;
-			}
+	/**
+	 * Score each candidate question by expected information gain and return the
+	 * highest-scoring one. Returns null if every question was already skipped
+	 * (previously answered "unknown").
+	 */
+	private async selectBestQuestion(
+		questions: ParsedQuestion[],
+		beamIds: number[],
+		beamVectorsById: Map<number, RetrievedVectors>,
+	): Promise<ScoredQuestion | null> {
+		const session = this.requireSession();
+		const config = session.config;
 
-			// Embed the question
-			const qVecs = await embedding.embedText([q.question]);
-			const qVec = qVecs[0];
-			if (!qVec) {
-				throw new Error(`Failed to embed question: ${q.question}`);
-			}
+		const skipped = new Set(session.skippedQuestions);
+		const pendingQuestions = questions.filter((q) => !skipped.has(q.question));
+		if (pendingQuestions.length === 0) {
+			return null;
+		}
 
-			// Compute scores for all candidates in beam
-			const beamIds = this.session.beam.ids();
-			const beamVectors = await qdrant.retrieveVectors(beamIds);
+		// PERF: embed all non-skipped candidate questions in one batch call
+		// (the provider batches internally) instead of one serial call each.
+		const questionVectors = await this.embedQuestions(pendingQuestions);
 
-			const scoresMap = new Map<number, number>();
-			for (let i = 0; i < beamIds.length; i++) {
-				const beamId = beamIds[i];
-				const beamVector = beamVectors[i];
-				if (beamId === undefined || beamVector === undefined) {
+		// PERF: skipped questions are embedded once and cached across rounds —
+		// each round only embeds the ones not yet in the cache.
+		const skippedVecs = await this.getSkippedVectors(session.skippedQuestions);
+
+		// Current beam probabilities (unchanged while scoring, so snapshot once)
+		const probs = session.beam.probabilities();
+
+		let best: ScoredQuestion | null = null;
+		for (const q of pendingQuestions) {
+			// embedQuestions guarantees an entry for every question text
+			const qVec = questionVectors.get(q.question)!;
+
+			// Compute scores for all candidates in beam. Ids missing from the
+			// Qdrant retrieve result get a neutral score (matching cosineSim01's
+			// zero-vector neutrality) so they are scored and updated like everyone
+			// else — leaving them unscored would relatively boost them every round
+			// (bayesianUpdate keeps unscored probabilities unchanged).
+			const scores = new Map<number, number>();
+			for (const beamId of beamIds) {
+				const beamVector = beamVectorsById.get(beamId);
+				if (!beamVector) {
+					scores.set(beamId, NEUTRAL_SCORE);
 					continue;
 				}
-				const textSim = cosineSim01(qVec, beamVector.text);
-				const visualSim = cosineSim01(qVec, beamVector.visual);
-				const score = config.alpha * textSim + (1 - config.alpha) * visualSim;
-				scoresMap.set(beamId, score);
+				scores.set(beamId, scoreCandidate(qVec, beamVector.text, beamVector.visual, config.alpha));
 			}
 
 			// Compute expected information gain
-			const probs = new Map<number, number>();
-			for (const item of this.session.beam.topK(Infinity)) {
-				probs.set(item.id, item.prob);
-			}
-
-			let { infoGain } = expectedInfoGain(probs, scoresMap, DEFAULT_BINS, config.lambda);
+			let { infoGain } = expectedInfoGain(probs, scores, DEFAULT_BINS, config.lambda);
 
 			// Apply IG penalty for questions similar to previously skipped "unknown" questions
-			if (this.session.skippedQuestions.length > 0) {
-				const skippedVecs = await embedding.embedText(this.session.skippedQuestions);
-				let maxSim = 0;
-				for (const skippedVec of skippedVecs) {
-					if (skippedVec) {
-						const sim = cosineSim01(qVec, skippedVec);
-						maxSim = Math.max(maxSim, sim);
-					}
-				}
-				// Penalize IG for questions similar to skipped ones (×0.3)
-				if (maxSim > 0.7) {
-					infoGain *= 0.3;
-				}
+			infoGain = this.applySkippedPenalty(infoGain, qVec, skippedVecs);
+
+			// Keep the highest-IG question (first wins on ties, matching the
+			// previous stable sort-by-IG behavior)
+			if (!best || infoGain > best.ig) {
+				best = { question: q, ig: infoGain, scores };
 			}
-
-			questionIGs.push({ question: q, ig: infoGain, scores: scoresMap });
 		}
 
-		if (questionIGs.length === 0) {
-			this.session.terminate('low_ig');
-			return null;
+		return best;
+	}
+
+	/**
+	 * Batch-embed question texts, returning a question → vector Map.
+	 * Throws if the provider returns fewer vectors than questions.
+	 */
+	private async embedQuestions(questions: ParsedQuestion[]): Promise<Map<string, Float32Array>> {
+		const vectors = new Map<string, Float32Array>();
+		if (questions.length === 0) return vectors;
+
+		const qVecs = await this.deps.embedding.embedText(questions.map((q) => q.question));
+		for (let i = 0; i < questions.length; i++) {
+			const q = questions[i]!;
+			const qVec = qVecs[i];
+			if (!qVec) {
+				throw new Error(`Failed to embed question: ${q.question}`);
+			}
+			vectors.set(q.question, qVec);
 		}
+		return vectors;
+	}
 
-		// Select question with highest IG
-		questionIGs.sort((a, b) => b.ig - a.ig);
-		const bestQuestion = questionIGs[0];
-
-		if (!bestQuestion) {
-			this.session.terminate('low_ig');
-			return null;
+	/**
+	 * 获取已跳过问题的向量（带跨轮缓存）。
+	 * 每轮只 embed 尚未缓存的问题，命中缓存的问题不重复消耗 embedding 调用。
+	 */
+	private async getSkippedVectors(skippedQuestions: string[]): Promise<Float32Array[]> {
+		const uncached = skippedQuestions.filter((q) => !this.skippedVecCache.has(q));
+		if (uncached.length > 0) {
+			const vecs = await this.deps.embedding.embedText(uncached);
+			for (let i = 0; i < uncached.length; i++) {
+				const vec = vecs[i];
+				if (!vec) {
+					throw new Error(`Failed to embed skipped question: ${uncached[i]}`);
+				}
+				this.skippedVecCache.set(uncached[i]!, vec);
+			}
 		}
+		return skippedQuestions.map((q) => this.skippedVecCache.get(q)!);
+	}
 
-		// Check if IG is too low
-		if (bestQuestion.ig < config.igThreshold && this.session.canTerminateByIG()) {
-			this.session.terminate('low_ig');
-			return null;
+	/** 对与已跳过问题相似的新问题惩罚 IG（×0.3） */
+	private applySkippedPenalty(
+		infoGain: number,
+		qVec: Float32Array,
+		skippedVecs: Float32Array[],
+	): number {
+		let maxSim = 0;
+		for (const skippedVec of skippedVecs) {
+			maxSim = Math.max(maxSim, cosineSim01(qVec, skippedVec));
 		}
-
-		// Notify callback
-		if (options.onQuestion) {
-			const results = this.getResults(5);
-			options.onQuestion(bestQuestion.question, results);
+		if (maxSim > SKIPPED_SIMILARITY_THRESHOLD) {
+			return infoGain * SKIPPED_SIMILARITY_PENALTY;
 		}
-
-		// Store scores for later update
-		(this as any)._lastScores = bestQuestion.scores;
-		(this as any)._lastBeamIds = this.session.beam.ids();
-
-		return bestQuestion.question;
+		return infoGain;
 	}
 
 	/**
 	 * Process user's answer and update the beam.
 	 */
 	async processAnswer(question: ParsedQuestion, answer: number | 'unknown'): Promise<void> {
-		if (!this.session) {
-			throw new Error('Session not initialized');
-		}
+		const session = this.requireSession();
 
 		// Record the answer
-		this.session.recordAnswer(question, answer);
+		session.recordAnswer(question, answer);
 
 		if (answer === 'unknown') {
-			// Don't update probabilities, just continue
+			// Don't update probabilities, just continue — but still enforce the
+			// round limit so repeated "unknown" answers terminate the session.
+			if (session.isMaxRounds()) {
+				session.terminate('max_rounds');
+			}
 			return;
 		}
 
-		// Bayesian update
-		const scores = (this as any)._lastScores as Map<number, number>;
-		const beamIds = (this as any)._lastBeamIds as number[];
+		// Consume the scores stored by nextQuestion (cleared after reading).
+		// The beam is unchanged since nextQuestion, so its current probabilities
+		// are the priors the scores were computed against.
+		const scores = this.lastScores;
+		this.lastScores = null;
 
-		if (!scores || !beamIds) {
+		if (!scores) {
 			throw new Error('No scores available for update');
 		}
 
-		const probs = new Map<number, number>();
-		for (let i = 0; i < beamIds.length; i++) {
-			const id = beamIds[i];
-			if (id !== undefined) {
-				probs.set(id, this.session.beam.get(id) ?? 0);
-			}
+		const probs = session.beam.probabilities();
+
+		const updatedProbs = normalize(bayesianUpdate(probs, scores, answer, session.config.lambda));
+
+		const newBeam = new Beam(session.config.beamSize);
+		for (const [id, prob] of updatedProbs) {
+			newBeam.set(id, prob);
 		}
+		newBeam.prune();
 
-		const updatedProbs = bayesianUpdate(probs, scores, answer, this.session.config.lambda);
-		const normalizedProbs = normalize(updatedProbs);
-
-		// Check for beam collapse
-		const maxProb = Math.max(...normalizedProbs.values());
-		if (maxProb < 0.01) {
-			// Beam collapsed — resample 500 candidates from prior
-			const allCandidates = await this.deps.qdrant.scroll(this.session.config.beamSize);
-			const newBeam = new Beam(this.session.config.beamSize);
-			const uniformProb = 1 / allCandidates.length;
-			for (const candidate of allCandidates) {
-				newBeam.set(candidate.id, uniformProb);
-				// Ensure candidate is in cache
-				if (!this.candidateCache.has(candidate.id)) {
-					const desc = (candidate.payload.description as string) ?? '';
-					const blake3 = (candidate.payload.blake3 as string) ?? '';
-					this.candidateCache.set(candidate.id, { description: desc, blake3 });
-				}
-			}
-			this.session.updateBeam(newBeam);
+		// Check for beam collapse with a beam-size-relative threshold: collapsed
+		// iff the max probability is still essentially uniform (≈ 1/beamSize).
+		// An absolute threshold (e.g. 0.01) false-positives at the default
+		// beamSize=500, where a uniform max prob is ≈ 0.002.
+		if (newBeam.isCollapsed(1.5 / session.config.beamSize)) {
+			await this.resetToUniformBeam(session);
 		} else {
 			// Normal update
-			const newBeam = new Beam(this.session.config.beamSize);
-			for (const [id, prob] of normalizedProbs) {
-				newBeam.set(id, prob);
-			}
-			newBeam.prune();
-			this.session.updateBeam(newBeam);
+			session.updateBeam(newBeam);
 		}
 
-		// Check termination conditions
-		const currentMaxProb = this.session.beam.maxProb();
-		const confidenceThreshold = 0.9; // Could be configurable
+		this.terminateIfNeeded(session);
+	}
 
-		if (currentMaxProb >= confidenceThreshold) {
-			this.session.terminate('confidence');
-		} else if (this.session.isMaxRounds()) {
+	/**
+	 * Beam collapsed — reset to a uniform beam of the first beamSize candidates
+	 * (scroll order, deterministic: re-selects the same first-N points as the
+	 * initial bootstrap).
+	 */
+	private async resetToUniformBeam(session: SearchSession): Promise<void> {
+		const allCandidates = await this.deps.qdrant.scroll(session.config.beamSize);
+		session.updateBeam(this.uniformBeamFrom(allCandidates, session.config.beamSize));
+	}
+
+	/** 根据当前 beam 最大概率判定终止条件 */
+	private terminateIfNeeded(session: SearchSession): void {
+		const currentMaxProb = session.beam.maxProb();
+
+		if (currentMaxProb >= CONFIDENCE_THRESHOLD) {
+			session.terminate('confidence');
+		} else if (session.isMaxRounds()) {
 			// Check if target is likely not in library
-			if (currentMaxProb < 0.5) {
-				this.session.terminate('not_in_library');
+			if (currentMaxProb < NOT_IN_LIBRARY_THRESHOLD) {
+				session.terminate('not_in_library');
 			} else {
-				this.session.terminate('max_rounds');
+				session.terminate('max_rounds');
 			}
 		}
 	}
@@ -355,18 +503,15 @@ export class SearchAlgorithm {
 	 * Get final search results.
 	 */
 	getResults(topK: number = 5): SearchResultWithDescription[] {
-		if (!this.session) {
-			throw new Error('Session not initialized');
-		}
+		const session = this.requireSession();
 
-		const topItems = this.session.beam.topK(topK);
-		return topItems.map((item) => {
-			const cached = this.candidateCache.get(item.id);
+		return session.beam.topK(topK).map((item) => {
 			const result: SearchResultWithDescription = {
 				id: item.id,
-				description: cached?.description ?? `Image ${item.id}`,
+				description: this.candidateDescription(item.id),
 				probability: item.prob,
 			};
+			const cached = this.candidateCache.get(item.id);
 			if (cached?.blake3) {
 				const sourcePath = this.resolveSourcePath(cached.blake3);
 				if (sourcePath) result.sourcePath = sourcePath;

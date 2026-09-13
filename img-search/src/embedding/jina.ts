@@ -1,4 +1,5 @@
 import { LLMError } from '@llm-image/shared';
+import { toErrorMessage } from '../util/error-message.js';
 import type { EmbeddingProvider } from './provider.js';
 
 interface JinaConfig {
@@ -16,6 +17,8 @@ interface JinaEmbeddingResponse {
 	usage: { prompt_tokens: number; total_tokens: number };
 }
 
+type JinaEmbeddingInput = { text: string } | { image: string };
+
 /**
  * Jina CLIP v2 embedding adapter — multimodal text+image in the same vector space.
  * API docs: https://api.jina.ai/v1/embeddings
@@ -32,30 +35,30 @@ export class JinaEmbeddingProvider implements EmbeddingProvider {
 	}
 
 	async embedText(texts: string[]): Promise<Float32Array[]> {
-		if (texts.length === 0) return [];
-
-		const results: Float32Array[] = [];
-		for (let i = 0; i < texts.length; i += this.config.textBatchSize) {
-			const batch = texts.slice(i, i + this.config.textBatchSize);
-			const embeddings = await this.callApi(batch.map((t) => ({ text: t })));
-			results.push(...embeddings);
-		}
-		return results;
+		return this.embedBatched(texts, this.config.textBatchSize, (text) => ({ text }));
 	}
 
 	async embedImage(base64DataUris: string[]): Promise<Float32Array[]> {
-		if (base64DataUris.length === 0) return [];
+		return this.embedBatched(base64DataUris, this.config.imageBatchSize, (image) => ({ image }));
+	}
+
+	/** 按 batchSize 分批调用 API，并保持结果与输入顺序一致。 */
+	private async embedBatched<T>(
+		items: T[],
+		batchSize: number,
+		toInput: (item: T) => JinaEmbeddingInput,
+	): Promise<Float32Array[]> {
+		if (items.length === 0) return [];
 
 		const results: Float32Array[] = [];
-		for (let i = 0; i < base64DataUris.length; i += this.config.imageBatchSize) {
-			const batch = base64DataUris.slice(i, i + this.config.imageBatchSize);
-			const embeddings = await this.callApi(batch.map((uri) => ({ image: uri })));
-			results.push(...embeddings);
+		for (let i = 0; i < items.length; i += batchSize) {
+			const inputs = items.slice(i, i + batchSize).map(toInput);
+			results.push(...(await this.callApi(inputs)));
 		}
 		return results;
 	}
 
-	private async callApi(inputs: ({ text: string } | { image: string })[]): Promise<Float32Array[]> {
+	private async callApi(inputs: JinaEmbeddingInput[]): Promise<Float32Array[]> {
 		const url = `${this.config.apiBase}/embeddings`;
 		const body = {
 			model: this.config.model,
@@ -72,9 +75,10 @@ export class JinaEmbeddingProvider implements EmbeddingProvider {
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify(body),
+				signal: AbortSignal.timeout(60_000),
 			});
 		} catch (e) {
-			throw new LLMError(`Jina API 网络错误: ${(e as Error).message}`, e);
+			throw new LLMError(`Jina API 网络错误: ${toErrorMessage(e)}`, e);
 		}
 
 		if (!resp.ok) {
@@ -82,7 +86,27 @@ export class JinaEmbeddingProvider implements EmbeddingProvider {
 			throw new LLMError(`Jina API 错误 (${resp.status}): ${text}`);
 		}
 
-		const data = (await resp.json()) as JinaEmbeddingResponse;
+		// HTTP 200 也可能返回非 JSON 响应体（代理/网关错误页等），需显式转换为 LLMError
+		let data: JinaEmbeddingResponse;
+		try {
+			data = (await resp.json()) as JinaEmbeddingResponse;
+		} catch (e) {
+			throw new LLMError(`Jina API 响应解析失败: ${toErrorMessage(e)}`);
+		}
+
+		if (!Array.isArray(data?.data) || data.data.length !== inputs.length) {
+			throw new LLMError(
+				`Jina API 响应不完整: 期望 ${inputs.length} 条，实际 ${data?.data?.length ?? '无'}`,
+			);
+		}
+
+		for (const item of data.data) {
+			if (!Array.isArray(item?.embedding)) {
+				throw new LLMError(
+					`Jina API 响应格式错误: 第 ${item?.index ?? '?'} 条数据缺少 embedding 数组`,
+				);
+			}
+		}
 
 		// Sort by index to ensure order matches input
 		const sorted = [...data.data].sort((a, b) => a.index - b.index);

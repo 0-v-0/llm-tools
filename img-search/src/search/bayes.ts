@@ -6,6 +6,9 @@
 /**
  * Cosine similarity mapped to [0, 1] range.
  * Standard cosine returns [-1, 1]; we map via (cos + 1) / 2.
+ * Zero/empty vectors have no direction, so the similarity is undefined;
+ * we return 0.5 (neutral) instead of 0 (worst) so that candidates with a
+ * missing named vector are not silently ranked last.
  */
 export function cosineSim01(a: Float32Array, b: Float32Array): number {
 	let dot = 0;
@@ -19,7 +22,7 @@ export function cosineSim01(a: Float32Array, b: Float32Array): number {
 		normB += bi * bi;
 	}
 	const denom = Math.sqrt(normA) * Math.sqrt(normB);
-	if (denom === 0) return 0;
+	if (denom === 0) return 0.5;
 	const cos = dot / denom;
 	return (cos + 1) / 2;
 }
@@ -37,6 +40,14 @@ export function scoreCandidate(
 	const textScore = cosineSim01(qVec, textVec);
 	const visualScore = cosineSim01(qVec, visualVec);
 	return alpha * textScore + (1 - alpha) * visualScore;
+}
+
+/**
+ * Gaussian likelihood kernel: L = exp(-λ * (x - s)²).
+ * Shared by the Bayesian update and the expected-info-gain computation.
+ */
+function gaussianLikelihood(x: number, score: number, lambda: number): number {
+	return Math.exp(-lambda * (x - score) ** 2);
 }
 
 /**
@@ -58,8 +69,7 @@ export function bayesianUpdate(
 			result.set(id, p);
 			continue;
 		}
-		const likelihood = Math.exp(-lambda * (answer - s) ** 2);
-		result.set(id, p * likelihood);
+		result.set(id, p * gaussianLikelihood(answer, s, lambda));
 	}
 	return result;
 }
@@ -114,32 +124,25 @@ export function expectedInfoGain(
 	const binEntropies: number[] = [];
 
 	for (const binValue of bins) {
-		// Compute likelihoods and unnormalized posterior
-		const likelihoods: number[] = [];
-		let totalLikelihood = 0;
+		// Compute likelihoods and the probability-weighted posterior
+		const weightedProbs: number[] = [];
+		let totalWeight = 0;
 
 		for (const [id, p] of probs) {
 			const s = scores.get(id);
-			const l = s !== undefined ? Math.exp(-lambda * (binValue - s) ** 2) : 1;
+			const l = s !== undefined ? gaussianLikelihood(binValue, s, lambda) : 1;
 			const weighted = p * l;
-			likelihoods.push(weighted);
-			totalLikelihood += weighted;
+			weightedProbs.push(weighted);
+			totalWeight += weighted;
 		}
 
-		// P(a_b) ∝ totalLikelihood
-		binUnnormProbs.push(totalLikelihood);
+		// P(a_b) ∝ totalWeight
+		binUnnormProbs.push(totalWeight);
 
-		// Posterior entropy for this bin
-		if (totalLikelihood > 0) {
-			let h = 0;
-			for (const w of likelihoods) {
-				const posterior = w / totalLikelihood;
-				if (posterior > 0) h -= posterior * Math.log(posterior);
-			}
-			binEntropies.push(h);
-		} else {
-			binEntropies.push(currentH);
-		}
+		// Posterior entropy for this bin (normalized weighted probs)
+		binEntropies.push(
+			totalWeight > 0 ? entropy(weightedProbs.map((w) => w / totalWeight)) : currentH,
+		);
 	}
 
 	// Normalize bin probabilities

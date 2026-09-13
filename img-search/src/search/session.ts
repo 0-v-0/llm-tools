@@ -14,13 +14,22 @@ export interface SearchResult {
 	sourcePath?: string;
 }
 
+/** 会话终止原因 */
+export type TerminationReason =
+	| 'confidence'
+	| 'max_rounds'
+	| 'not_in_library'
+	| 'no_questions'
+	| 'low_ig'
+	| 'homogeneous';
+
 export interface SearchSessionState {
 	beam: Beam;
 	round: number;
 	history: QuestionRecord[];
 	skippedQuestions: string[];
 	terminated: boolean;
-	terminationReason?: 'confidence' | 'max_rounds' | 'not_in_library' | 'low_ig' | 'homogeneous';
+	terminationReason?: TerminationReason;
 }
 
 export interface SessionConfig {
@@ -31,6 +40,7 @@ export interface SessionConfig {
 	alpha: number;
 	lambda: number;
 	candidateQuestions: number;
+	topKQuestions: number;
 }
 
 /**
@@ -71,7 +81,7 @@ export class SearchSession {
 		return this.state.terminated;
 	}
 
-	get terminationReason(): string | undefined {
+	get terminationReason(): SearchSessionState['terminationReason'] {
 		return this.state.terminationReason;
 	}
 
@@ -98,30 +108,22 @@ export class SearchSession {
 	}
 
 	/** Terminate the session */
-	terminate(
-		reason: 'confidence' | 'max_rounds' | 'not_in_library' | 'low_ig' | 'homogeneous',
-	): void {
+	terminate(reason: TerminationReason): void {
 		this.state.terminated = true;
 		this.state.terminationReason = reason;
 	}
 
-	/** Check if we can terminate due to IG threshold */
+	/**
+	 * Check if we can terminate due to IG threshold.
+	 * 严格大于：本检查在 startRound() 之后、本轮问题尚未提出/回答之前调用，
+	 * `round > minRounds` 保证至少 minRounds 个问题已被提出且回答后才能终止。
+	 */
 	canTerminateByIG(): boolean {
-		return this.state.round >= this.config.minRounds;
+		return this.state.round > this.config.minRounds;
 	}
 
 	/** Check if we've reached max rounds */
 	isMaxRounds(): boolean {
 		return this.state.round >= this.config.maxRounds;
-	}
-
-	/** Get results sorted by probability */
-	getResults(topK: number = 5): SearchResult[] {
-		const topItems = this.state.beam.topK(topK);
-		return topItems.map((item) => ({
-			id: item.id,
-			description: '',
-			probability: item.prob,
-		}));
 	}
 }

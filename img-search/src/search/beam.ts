@@ -21,14 +21,6 @@ export class Beam {
 		this.candidates.set(id, prob);
 	}
 
-	has(id: number): boolean {
-		return this.candidates.has(id);
-	}
-
-	delete(id: number): boolean {
-		return this.candidates.delete(id);
-	}
-
 	/** Get top-K candidates sorted by probability (descending). */
 	topK(k: number): { id: number; prob: number }[] {
 		return Array.from(this.candidates.entries())
@@ -73,37 +65,8 @@ export class Beam {
 		return Array.from(this.candidates.keys());
 	}
 
-	/** All probabilities as an iterable. */
-	values(): IterableIterator<number> {
-		return this.candidates.values();
-	}
-
-	/** All (id, prob) pairs as an iterable. */
-	entries(): IterableIterator<[number, number]> {
-		return this.candidates.entries();
-	}
-
-	/** Serialize for session persistence. */
-	serialize(): { id: number; prob: number }[] {
-		return this.topK(this.candidates.size);
-	}
-
-	/** Deserialize from saved data. */
-	static deserialize(data: { id: number; prob: number }[], maxSize: number): Beam {
-		const beam = new Beam(maxSize);
-		for (const { id, prob } of data) {
-			beam.set(id, prob);
-		}
-		return beam;
-	}
-
-	/** Set all candidates from a map (replaces existing). */
-	setAll(candidates: Map<number, number>): void {
-		this.candidates = new Map(candidates);
-	}
-
-	/** Get all candidates as a Map (read-only view). */
-	getAll(): ReadonlyMap<number, number> {
-		return this.candidates;
+	/** Snapshot of all id → probability pairs (safe to mutate). */
+	probabilities(): Map<number, number> {
+		return new Map(this.candidates);
 	}
 }

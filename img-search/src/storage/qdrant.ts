@@ -1,5 +1,6 @@
 import { StorageError } from '@llm-image/shared';
 import { QdrantClient, type QdrantClientParams } from '@qdrant/js-client-rest';
+import { toErrorMessage } from '../util/error-message.js';
 
 export interface QdrantPoint {
 	id: number;
@@ -14,10 +15,25 @@ export interface RetrievedVectors {
 	visual: Float32Array;
 }
 
-export interface SearchResult {
+export interface QdrantHit {
 	id: number;
 	score: number;
 	payload: Record<string, unknown>;
+}
+
+/** Wrap an unknown error into a StorageError with a localized message. */
+function toStorageError(message: string, e: unknown): StorageError {
+	return new StorageError(`${message}: ${toErrorMessage(e)}`, e);
+}
+
+/** Qdrant may return point ids as numbers or numeric strings. */
+function toPointId(id: number | string): number {
+	return typeof id === 'number' ? id : parseInt(String(id), 10);
+}
+
+/** Pull the `points` array out of a query/scroll response. */
+function extractPoints(response: unknown): unknown[] {
+	return (response as { points?: unknown[] }).points ?? [];
 }
 
 /**
@@ -39,18 +55,31 @@ export class QdrantStore {
 
 	/**
 	 * Create the collection with named vectors if it doesn't exist.
-	 * Idempotent — safe to call on every startup.
+	 * If it already exists, validates that the named vector dimensions match
+	 * the configured ones. Idempotent — safe to call on every startup.
 	 */
 	async ensureCollection(): Promise<void> {
+		let exists: boolean;
 		try {
-			// Check if collection already exists
-			try {
-				await this.client.getCollection(this.collection);
-				return; // Collection exists
-			} catch {
-				// Collection doesn't exist — create it
-			}
+			// collectionExists() maps a 404 to `{ exists: false }` and only throws
+			// for real failures (auth, network, server errors).
+			exists = (await this.client.collectionExists(this.collection)).exists;
+		} catch (e) {
+			throw toStorageError('Qdrant 连接失败', e);
+		}
 
+		if (exists) {
+			try {
+				const info = await this.client.getCollection(this.collection);
+				this.validateVectorDimensions(info as { config?: { params?: { vectors?: unknown } } });
+			} catch (e) {
+				if (e instanceof StorageError) throw e;
+				throw toStorageError('Qdrant 连接失败', e);
+			}
+			return;
+		}
+
+		try {
 			await this.client.createCollection(this.collection, {
 				vectors: {
 					text: { size: this.dimensions, distance: 'Cosine' },
@@ -59,6 +88,25 @@ export class QdrantStore {
 			});
 		} catch (e) {
 			throw new StorageError(`Qdrant collection 创建失败: ${this.collection}`, e);
+		}
+	}
+
+	/**
+	 * Validate that the existing collection's named-vector sizes match
+	 * this.dimensions. Skipped when params/vectors are absent (legacy collections)
+	 * or when the collection uses a single unnamed vector.
+	 */
+	private validateVectorDimensions(info: { config?: { params?: { vectors?: unknown } } }): void {
+		const vectors = info.config?.params?.vectors;
+		if (!vectors || typeof vectors !== 'object' || Array.isArray(vectors)) return;
+		const named = vectors as Record<string, { size?: number } | undefined>;
+		for (const name of ['text', 'visual'] as const) {
+			const size = named[name]?.size;
+			if (typeof size === 'number' && size !== this.dimensions) {
+				throw new StorageError(
+					`Qdrant collection "${this.collection}" 的 ${name} 向量维度为 ${size}, 与期望的 ${this.dimensions} 不一致`,
+				);
+			}
 		}
 	}
 
@@ -86,16 +134,18 @@ export class QdrantStore {
 	}
 
 	/**
-	 * Retrieve text and visual vectors for a list of point IDs.
+	 * Retrieve vectors for a list of point IDs. By default both text and visual
+	 * vectors are returned; pass `vectorNames` to restrict which named vectors
+	 * are fetched (e.g. `['text']`).
 	 * Used during the search loop to get beam candidate vectors.
 	 */
-	async retrieveVectors(ids: number[]): Promise<RetrievedVectors[]> {
+	async retrieveVectors(ids: number[], vectorNames?: string[]): Promise<RetrievedVectors[]> {
 		if (ids.length === 0) return [];
 
 		try {
 			const records = await this.client.retrieve(this.collection, {
-				ids: ids,
-				with_vector: true,
+				ids,
+				with_vector: vectorNames ?? true,
 				with_payload: false,
 			});
 
@@ -113,18 +163,10 @@ export class QdrantStore {
 	}
 
 	/**
-	 * Search for nearest neighbors using the visual vector.
-	 * Used for initial beam bootstrap and re-expansion.
-	 */
-	async searchVisual(queryVec: Float32Array, limit: number): Promise<SearchResult[]> {
-		return this.searchNamed('visual', queryVec, limit);
-	}
-
-	/**
 	 * Search for nearest neighbors using the text vector.
 	 * Used for initial beam bootstrap with a text hint.
 	 */
-	async searchText(queryVec: Float32Array, limit: number): Promise<SearchResult[]> {
+	async searchText(queryVec: Float32Array, limit: number): Promise<QdrantHit[]> {
 		return this.searchNamed('text', queryVec, limit);
 	}
 
@@ -132,7 +174,7 @@ export class QdrantStore {
 		vectorName: string,
 		queryVec: Float32Array,
 		limit: number,
-	): Promise<SearchResult[]> {
+	): Promise<QdrantHit[]> {
 		try {
 			const response = await this.client.query(this.collection, {
 				query: Array.from(queryVec),
@@ -142,14 +184,14 @@ export class QdrantStore {
 				with_vector: false,
 			});
 
-			const points = (response as { points?: unknown[] }).points ?? [];
-			return (
-				points as { id: number | string; score: number; payload: Record<string, unknown> }[]
-			).map((p) => ({
-				id: typeof p.id === 'number' ? p.id : parseInt(String(p.id), 10),
-				score: p.score,
-				payload: p.payload ?? {},
-			}));
+			return extractPoints(response).map((p) => {
+				const point = p as { id: number | string; score: number; payload?: Record<string, unknown> };
+				return {
+					id: toPointId(point.id),
+					score: point.score,
+					payload: point.payload ?? {},
+				};
+			});
 		} catch (e) {
 			throw new StorageError(`Qdrant search 失败 (${vectorName})`, e);
 		}
@@ -162,33 +204,30 @@ export class QdrantStore {
 		try {
 			const result = await this.client.count(this.collection, { exact: true });
 			return result.count;
-		} catch {
-			return 0;
+		} catch (e) {
+			throw new StorageError('Qdrant count 失败', e);
 		}
 	}
 
 	/**
 	 * Scroll through points for initial beam bootstrap (no hint).
-	 * Returns a random sample of points.
+	 * Returns the first `limit` points in deterministic id order.
 	 */
-	async scroll(
-		limit: number,
-		offset?: number,
-	): Promise<{ id: number; payload: Record<string, unknown> }[]> {
+	async scroll(limit: number): Promise<{ id: number; payload: Record<string, unknown> }[]> {
 		try {
-			const scrollParams: Record<string, unknown> = {
+			const result = await this.client.scroll(this.collection, {
 				limit,
 				with_payload: true,
 				with_vector: false,
-			};
-			if (offset !== undefined) scrollParams.offset = offset;
-			const result = await this.client.scroll(this.collection, scrollParams);
+			});
 
-			const points = (result as { points?: unknown[] }).points ?? [];
-			return (points as { id: number | string; payload: Record<string, unknown> }[]).map((p) => ({
-				id: typeof p.id === 'number' ? p.id : parseInt(String(p.id), 10),
-				payload: p.payload ?? {},
-			}));
+			return extractPoints(result).map((p) => {
+				const point = p as { id: number | string; payload?: Record<string, unknown> };
+				return {
+					id: toPointId(point.id),
+					payload: point.payload ?? {},
+				};
+			});
 		} catch (e) {
 			throw new StorageError('Qdrant scroll 失败', e);
 		}
