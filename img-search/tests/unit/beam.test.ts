@@ -15,8 +15,6 @@ describe('Beam', () => {
 		expect(beam.get(1)).toBe(0.5);
 		expect(beam.get(2)).toBe(0.3);
 		expect(beam.get(3)).toBeUndefined();
-		expect(beam.has(1)).toBe(true);
-		expect(beam.has(3)).toBe(false);
 	});
 
 	it('returns topK sorted by probability', () => {
@@ -40,6 +38,22 @@ describe('Beam', () => {
 		expect(top).toHaveLength(2);
 	});
 
+	it('topK with k > size returns every entry sorted descending', () => {
+		const beam = new Beam(500);
+		beam.set(1, 0.2);
+		beam.set(2, 0.9);
+		beam.set(3, 0.5);
+		const top = beam.topK(100);
+		expect(top.map((c) => c.id)).toEqual([2, 3, 1]);
+		expect(top.map((c) => c.prob)).toEqual([0.9, 0.5, 0.2]);
+	});
+
+	it('topK(0) returns an empty array', () => {
+		const beam = new Beam(500);
+		beam.set(1, 0.5);
+		expect(beam.topK(0)).toEqual([]);
+	});
+
 	it('prunes to maxSize keeping highest probabilities', () => {
 		const beam = new Beam(3);
 		beam.set(1, 0.1);
@@ -50,11 +64,11 @@ describe('Beam', () => {
 		beam.prune();
 		expect(beam.size()).toBe(3);
 		// Should keep ids 2, 4, 3 (highest probs)
-		expect(beam.has(2)).toBe(true);
-		expect(beam.has(4)).toBe(true);
-		expect(beam.has(3)).toBe(true);
-		expect(beam.has(1)).toBe(false);
-		expect(beam.has(5)).toBe(false);
+		expect(beam.get(2)).toBe(0.5);
+		expect(beam.get(4)).toBe(0.4);
+		expect(beam.get(3)).toBe(0.3);
+		expect(beam.get(1)).toBeUndefined();
+		expect(beam.get(5)).toBeUndefined();
 	});
 
 	it('does not prune if under maxSize', () => {
@@ -65,12 +79,60 @@ describe('Beam', () => {
 		expect(beam.size()).toBe(2);
 	});
 
+	it('prune with tied boundary probabilities keeps the earliest-inserted candidate', () => {
+		// Ids 2 and 3 share the boundary prob 0.4. topK sorts by prob desc with
+		// Array.prototype.sort (stable), so among ties insertion order wins:
+		// id 2 is kept and id 3 is dropped. Deterministic for this insertion order.
+		const beam = new Beam(2);
+		beam.set(1, 0.5);
+		beam.set(2, 0.4);
+		beam.set(3, 0.4);
+		beam.prune();
+		expect(beam.size()).toBe(2);
+		expect(beam.get(1)).toBe(0.5);
+		expect(beam.get(2)).toBe(0.4);
+		expect(beam.get(3)).toBeUndefined();
+	});
+
+	it('probabilities returns a snapshot equal to the beam contents', () => {
+		const beam = new Beam(500);
+		beam.set(1, 0.5);
+		beam.set(2, 0.3);
+		expect(beam.probabilities()).toEqual(
+			new Map([
+				[1, 0.5],
+				[2, 0.3],
+			]),
+		);
+	});
+
+	it('mutating the probabilities snapshot does not affect the beam', () => {
+		const beam = new Beam(500);
+		beam.set(1, 0.5);
+		const snapshot = beam.probabilities();
+		snapshot.set(1, 0.99);
+		snapshot.set(2, 0.7);
+		snapshot.delete(1);
+		expect(beam.get(1)).toBe(0.5);
+		expect(beam.get(2)).toBeUndefined();
+		expect(beam.size()).toBe(1);
+	});
+
 	it('maxProb returns highest probability', () => {
 		const beam = new Beam(500);
 		beam.set(1, 0.1);
 		beam.set(2, 0.7);
 		beam.set(3, 0.3);
 		expect(beam.maxProb()).toBe(0.7);
+	});
+
+	it('maxProb returns 0 for all-negative probabilities', () => {
+		// Pinned: max starts at 0, so negative probabilities can never raise it —
+		// the "max" is really "max(p, 0)".
+		const beam = new Beam(500);
+		beam.set(1, -0.5);
+		beam.set(2, -0.1);
+		expect(beam.maxProb()).toBe(0);
 	});
 
 	it('isCollapsed returns true when all probs below threshold', () => {
@@ -92,32 +154,18 @@ describe('Beam', () => {
 		expect(beam.isCollapsed(0.01)).toBe(true);
 	});
 
-	it('serialize and deserialize round-trip', () => {
+	it('isCollapsed returns false when a prob exactly equals the threshold', () => {
+		// Pinned boundary: the check is p >= threshold, so a prob equal to the
+		// threshold counts as "not collapsed".
 		const beam = new Beam(500);
-		beam.set(1, 0.5);
-		beam.set(2, 0.3);
-		beam.set(3, 0.2);
-		const serialized = beam.serialize();
-		expect(serialized).toHaveLength(3);
-		// Sorted by prob descending
-		expect(serialized[0]!.id).toBe(1);
-		expect(serialized[0]!.prob).toBe(0.5);
-
-		const restored = Beam.deserialize(serialized, 500);
-		expect(restored.size()).toBe(3);
-		expect(restored.get(1)).toBe(0.5);
-		expect(restored.get(2)).toBe(0.3);
-		expect(restored.get(3)).toBe(0.2);
+		beam.set(1, 0.01);
+		expect(beam.isCollapsed(0.01)).toBe(false);
 	});
 
-	it('delete removes a candidate', () => {
+	it('isCollapsed returns true when the highest prob is just below the threshold', () => {
 		const beam = new Beam(500);
-		beam.set(1, 0.5);
-		beam.set(2, 0.3);
-		expect(beam.delete(1)).toBe(true);
-		expect(beam.has(1)).toBe(false);
-		expect(beam.size()).toBe(1);
-		expect(beam.delete(99)).toBe(false);
+		beam.set(1, 0.009999);
+		expect(beam.isCollapsed(0.01)).toBe(true);
 	});
 
 	it('ids returns all candidate IDs', () => {
@@ -130,20 +178,5 @@ describe('Beam', () => {
 		expect(ids).toContain(1);
 		expect(ids).toContain(2);
 		expect(ids).toContain(3);
-	});
-
-	it('setAll replaces all candidates', () => {
-		const beam = new Beam(500);
-		beam.set(1, 0.5);
-		beam.setAll(
-			new Map([
-				[2, 0.3],
-				[3, 0.7],
-			]),
-		);
-		expect(beam.size()).toBe(2);
-		expect(beam.has(1)).toBe(false);
-		expect(beam.has(2)).toBe(true);
-		expect(beam.has(3)).toBe(true);
 	});
 });

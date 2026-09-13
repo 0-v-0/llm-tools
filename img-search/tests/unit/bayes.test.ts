@@ -29,10 +29,37 @@ describe('cosineSim01', () => {
 		expect(cosineSim01(a, b)).toBeCloseTo(0, 5);
 	});
 
-	it('returns 0 for zero vectors', () => {
+	it('returns 0.5 (neutral) for zero vectors', () => {
 		const a = new Float32Array([0, 0]);
 		const b = new Float32Array([1, 1]);
-		expect(cosineSim01(a, b)).toBe(0);
+		// Zero vectors have no direction, so similarity is undefined;
+		// 0.5 (neutral) avoids silently ranking candidates with a missing
+		// named vector as the worst match.
+		expect(cosineSim01(a, b)).toBe(0.5);
+	});
+
+	it('returns 0.5 (neutral) when the second vector is zero', () => {
+		// Covers the denom === 0 branch from the other side (normB === 0).
+		const a = new Float32Array([1, 1]);
+		const b = new Float32Array([0, 0]);
+		expect(cosineSim01(a, b)).toBe(0.5);
+	});
+
+	it('ignores extra dimensions of the longer second vector', () => {
+		// The accumulation loop is bounded by a.length, so trailing dims of b
+		// are silently ignored: b[2] would change the true cosine but is never read.
+		const a = new Float32Array([1, 0]);
+		const b = new Float32Array([1, 0, 0.999]);
+		// Same as comparing [1,0] vs [1,0] → cos=1 → 1
+		expect(cosineSim01(a, b)).toBeCloseTo(1, 5);
+	});
+
+	it('returns NaN when the first vector is longer than the second', () => {
+		// Pinned asymmetry: the loop reads b[i] for i < a.length; when a is the
+		// longer array, b[i] is undefined and NaN propagates through dot/norms.
+		const a = new Float32Array([1, 0, 0.999]);
+		const b = new Float32Array([1, 0]);
+		expect(cosineSim01(a, b)).toBeNaN();
 	});
 });
 
@@ -85,6 +112,26 @@ describe('bayesianUpdate', () => {
 		const updated = bayesianUpdate(probs, scores, 0.5, 8);
 		expect(updated.get(2)).toBe(0.5); // unchanged
 	});
+
+	it('likelihood underflows to 0 for very large lambda (collapse)', () => {
+		// exp(-lambda * (answer - score)^2) with lambda=1e6 and distance 0.5
+		// underflows to exactly 0 for every candidate → all-zero output map.
+		// This is pinned behavior: the caller (via normalize/Beam.isCollapsed)
+		// is responsible for handling the collapse.
+		const probs = new Map([
+			[1, 0.5],
+			[2, 0.5],
+		]);
+		const scores = new Map([
+			[1, 0],
+			[2, 1],
+		]);
+		const updated = bayesianUpdate(probs, scores, 0.5, 1e6);
+		expect(updated.get(1)).toBe(0);
+		expect(updated.get(2)).toBe(0);
+		// normalize is a no-op on the all-zero map (same reference returned)
+		expect(normalize(updated)).toBe(updated);
+	});
 });
 
 describe('normalize', () => {
@@ -111,6 +158,28 @@ describe('normalize', () => {
 		const result = normalize(probs);
 		expect(result.get(1)).toBe(0);
 		expect(result.get(2)).toBe(0);
+	});
+
+	it('returns the SAME Map reference (not a copy) when sum is 0', () => {
+		// Pinned identity: zero-sum short-circuits and hands back the input map,
+		// so mutating the result would also mutate the caller's map.
+		const probs = new Map([
+			[1, 0],
+			[2, 0],
+		]);
+		expect(normalize(probs)).toBe(probs);
+	});
+
+	it('divides by a negative sum for negative probabilities (no validation)', () => {
+		// Pinned behavior: normalize does not validate inputs; negative
+		// probabilities are simply divided by the (negative) sum.
+		const probs = new Map([
+			[1, -1],
+			[2, 3],
+		]);
+		const result = normalize(probs);
+		expect(result.get(1)).toBeCloseTo(-0.5, 10);
+		expect(result.get(2)).toBeCloseTo(1.5, 10);
 	});
 });
 
@@ -207,6 +276,55 @@ describe('expectedInfoGain', () => {
 		const sum = result.binProbabilities.reduce((a, b) => a + b, 0);
 		expect(sum).toBeCloseTo(1, 5);
 	});
+
+	it('returns infoGain 0 when scores has none of the candidate ids', () => {
+		// With no score for any candidate, likelihood is 1 per bin: the answer
+		// cannot change the posterior, so expectedH === currentH → IG = 0.
+		const probs = new Map([
+			[1, 0.5],
+			[2, 0.5],
+		]);
+		const scores = new Map<number, number>([
+			[99, 0.5], // unrelated id
+		]);
+		const result = expectedInfoGain(probs, scores, [0.2, 0.8], 8);
+		expect(result.infoGain).toBeCloseTo(0, 10);
+		// Every bin is equally likely since all bin weights equal the prior sum
+		expect(result.binProbabilities).toEqual([0.5, 0.5]);
+	});
+
+	it('falls back to uniform binProbabilities when all candidate probs are 0', () => {
+		// totalBinProb === 0 path: bin weights are all 0, so bin probabilities
+		// fall back to 1 / bins.length and infoGain stays 0.
+		const probs = new Map([
+			[1, 0],
+			[2, 0],
+		]);
+		const scores = new Map([
+			[1, 0.2],
+			[2, 0.8],
+		]);
+		const result = expectedInfoGain(probs, scores, [0.2, 0.8], 8);
+		expect(result.binProbabilities).toEqual([0.5, 0.5]);
+		expect(result.infoGain).toBeCloseTo(0, 10);
+	});
+
+	it('candidate missing from scores keeps likelihood 1 while others update', () => {
+		// Candidate 1 has a score far from the bin value (likelihood ~0 with
+		// large lambda); candidate 2 has no score → likelihood 1 → it absorbs
+		// all posterior mass for that bin, so IG reaches the full prior entropy.
+		const probs = new Map([
+			[1, 0.5],
+			[2, 0.5],
+		]);
+		const scores = new Map([
+			[1, 0.1],
+			// no score for id 2
+		]);
+		const result = expectedInfoGain(probs, scores, [0.9], 1000);
+		// Prior entropy = ln(2); posterior collapses to candidate 2 → entropy 0
+		expect(result.infoGain).toBeCloseTo(Math.log(2), 5);
+	});
 });
 
 describe('candidateDiversity', () => {
@@ -225,6 +343,16 @@ describe('candidateDiversity', () => {
 	it('returns 0 for single or empty vector set', () => {
 		expect(candidateDiversity([])).toBe(0);
 		expect(candidateDiversity([new Float32Array([1, 0])])).toBe(0);
+	});
+
+	it('returns high value (> 0.5) for very different vectors', () => {
+		// Opposite directions: cosineSim01 = 0 → distance = 1.
+		// Per the doc comment, low diversity (< 0.1) means homogeneous;
+		// strongly heterogeneous sets score well above that.
+		const a = new Float32Array([1, 0]);
+		const b = new Float32Array([-1, 0]);
+		expect(candidateDiversity([a, b])).toBeCloseTo(1, 5);
+		expect(candidateDiversity([a, b])).toBeGreaterThan(0.5);
 	});
 });
 
@@ -272,5 +400,27 @@ describe('temperPosterior', () => {
 		const result = temperPosterior(posterior, prior, 1);
 		expect(result.get(1)).toBeCloseTo(0.5, 5);
 		expect(result.get(2)).toBeCloseTo(0.5, 5);
+	});
+
+	it('treats missing prior entry as 0 and drops prior-only ids (asymmetric keys)', () => {
+		// Iteration is over the posterior: an id in the posterior but not the
+		// prior blends with prior weight 0; an id present only in the prior
+		// never appears in the result.
+		const posterior = new Map([
+			[1, 0.8],
+			[3, 0.2],
+		]);
+		const prior = new Map([
+			[1, 0.5],
+			[2, 0.5],
+		]);
+		const result = temperPosterior(posterior, prior, 0.25);
+		// p_1 = 0.75*0.8 + 0.25*0.5 = 0.725
+		expect(result.get(1)).toBeCloseTo(0.725, 10);
+		// p_3 = 0.75*0.2 + 0.25*0 (prior treated as 0) = 0.15
+		expect(result.get(3)).toBeCloseTo(0.15, 10);
+		// id 2 exists only in the prior → dropped
+		expect(result.has(2)).toBe(false);
+		expect(result.size).toBe(2);
 	});
 });

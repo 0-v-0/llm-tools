@@ -295,8 +295,14 @@ pnpm --filter img-search start -- <command>
 
 ### 测试
 
-45 个单元测试覆盖核心算法：
+150 个单元测试覆盖核心算法与存储层：
 
-- `bayes.test.ts`（23 测试）：余弦相似度、贝叶斯更新、信息增益、多样性、温和更新
-- `beam.test.ts`（14 测试）：CRUD、topK、prune、序列化
-- `question-parser.test.ts`（8 测试）：tool call、JSON、code fence、regex fallback
+- `algorithm.test.ts`（19 测试）：beam 初始化（hint/无 hint/空库）、IG 选择、贝叶斯更新、各终止原因、坍缩重置、向量配对
+- `session.test.ts`（11 测试）：会话状态机（轮次、历史、跳过、终止边界）
+- `bayes.test.ts`（34 测试）：余弦相似度、贝叶斯更新、信息增益、多样性、边界与下溢
+- `beam.test.ts`（19 测试）：topK、prune、坍缩判定、快照
+- `question-parser.test.ts`（16 测试）：tool call、JSON、code fence、regex fallback
+- `config.test.ts`（19 测试）：配置解析、校验边界、min/maxRounds 交叉校验
+- `env.test.ts`（13 测试）：环境变量默认值、强转、不安全传输告警
+- `repository.test.ts`（7 测试）：CRUD、UNIQUE hash 去重契约、状态更新
+- `jina.test.ts`（12 测试）：批处理、顺序恢复、错误包装、超时信号
