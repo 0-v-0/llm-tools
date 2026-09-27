@@ -37,7 +37,8 @@ import { HttpError } from './errors.ts';
 
 export interface SessionDeps {
 	config: AppConfig;
-	provider: LLMProvider;
+	/** LLM provider；null = 未配置密钥（手动模式：自动选择/建议/锦标赛禁用）。 */
+	provider: LLMProvider | null;
 	/** checkpoint 文件路径（checkpointEnabled=false 时忽略）。 */
 	checkpointPath: string;
 	checkpointEnabled: boolean;
@@ -186,15 +187,22 @@ export class CleanupSession {
 		}
 	}
 
+	private requireProvider(action: string): LLMProvider {
+		const provider = this.deps.provider;
+		if (!provider) throw new HttpError(409, `LLM 未配置，${action}不可用`);
+		return provider;
+	}
+
 	/** LLM 自动选择一个批次（缓存命中则直接返回缓存裁决）。 */
 	async autoBatch(index: number): Promise<BatchDTO> {
 		this.requireSelecting();
+		const provider = this.requireProvider('自动选择');
 		const sb = this.batchAt(index);
 		if (sb.status === 'decided') throw new HttpError(409, `批次 ${index} 已有裁决`);
 		try {
 			const { result, reused } = await selectFromBatch(
 				sb.batch,
-				this.deps.provider,
+				provider,
 				this.deps.config.maxImageDimension,
 				this.checkpoint,
 			);
@@ -259,6 +267,7 @@ export class CleanupSession {
 	/** 获取 LLM 建议但不写缓存、不改变批次状态（手动挑选界面用）。 */
 	async suggest(index: number): Promise<{ keptUrl: string; reason: string; cached: boolean }> {
 		this.requireSelecting();
+		const provider = this.requireProvider('LLM 建议');
 		const sb = this.batchAt(index);
 		if (sb.batch.images.length < 2) {
 			throw new HttpError(400, `批次 ${index} 仅 1 张图片，无需比较`);
@@ -269,7 +278,7 @@ export class CleanupSession {
 		try {
 			const { result } = await selectFromBatch(
 				sb.batch,
-				this.deps.provider,
+				provider,
 				this.deps.config.maxImageDimension,
 				this.checkpoint,
 				{ record: false },
@@ -283,6 +292,7 @@ export class CleanupSession {
 	/** 自动跑完所有未决批次。逐批捕获错误，失败不影响后续批次。 */
 	async runRemaining(): Promise<void> {
 		this.requireSelecting();
+		this.requireProvider('自动完成剩余批次');
 		if (this.running) throw new HttpError(409, '已有自动任务在执行');
 		this.running = true;
 		this.notify();
@@ -335,7 +345,7 @@ export class CleanupSession {
 				const outcome = await runTournament(
 					allLosers,
 					this.m,
-					this.deps.provider,
+					provider,
 					this.deps.config.maxImageDimension,
 					this.checkpoint,
 				);
@@ -494,6 +504,10 @@ export class SessionManager {
 		return this.deps.checkpointEnabled;
 	}
 
+	get llmAvailable(): boolean {
+		return this.deps.provider !== null;
+	}
+
 	get active(): CleanupSession | undefined {
 		for (const s of this.sessions.values()) {
 			if (s.status !== 'moved') return s;
@@ -517,7 +531,7 @@ export class SessionManager {
 		if (active) {
 			throw new HttpError(409, `已有进行中的会话 ${active.id}，请先完成或放弃`);
 		}
-		const { config, provider, checkpointEnabled } = this.deps;
+		const { config, checkpointEnabled } = this.deps;
 		const pathGlobs = (params.pathGlobs ?? []).filter((g) => g.length > 0);
 		const standard = params.standard?.trim() || null;
 		const batchSize = params.batchSize ?? config.batchSize;
@@ -537,6 +551,11 @@ export class SessionManager {
 		if (checkpointEnabled) {
 			// Web 端无交互终端，standard 变更等需确认的场景强制复用
 			// （与 CLI --force 一致），说明文字返回给前端展示。
+			// 无 LLM 时以 manual 裁决身份记录（裁决缓存键含 judge，与真实
+			// provider 的缓存互不复用——手动模式下的裁决仅手动模式可见）。
+			const judge = this.deps.provider
+				? { provider: this.deps.provider.provider, model: this.deps.provider.model }
+				: { provider: 'manual', model: 'manual' };
 			const resolved = await this.resolveCheckpoint({
 				m: parseM(params.mArg, images.length),
 				mArg: params.mArg,
@@ -547,8 +566,7 @@ export class SessionManager {
 				targetDir: resolvePath(params.targetDir),
 				dryRun,
 				imageUrls: images.map((i) => i.url),
-				provider: provider.provider,
-				model: provider.model,
+				...judge,
 				maxImageDimension: config.maxImageDimension,
 			});
 			checkpoint = resolved.checkpoint;

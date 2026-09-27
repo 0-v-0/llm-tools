@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { serve } from '@hono/node-server';
-import { createProvider, resolveProviderConfig } from '@llm-image/shared';
+import { createProvider, resolveProviderConfig, type LLMProvider } from '@llm-image/shared';
 import {
 	bootstrap,
 	getCheckpointPath,
@@ -16,7 +16,16 @@ const HOST = '127.0.0.1';
 const env = loadEnv();
 bootstrap(process.env.IMGDATA_DIR);
 const config = loadConfig();
-const provider = createProvider(resolveProviderConfig(config.llm, env));
+// LLM 密钥未配置时回退到手动模式启动：自动选择/建议/锦标赛不可用，
+// 批次比较仍可逐批手动挑选（裁决照常写入 checkpoint 缓存）。
+let provider: LLMProvider | null = null;
+try {
+	provider = createProvider(resolveProviderConfig(config.llm, env));
+} catch (e) {
+	console.warn(
+		`[img-cleanup-web] LLM 不可用（${e instanceof Error ? e.message : String(e)}），以手动模式启动：自动选择与锦标赛淘汰将不可用`,
+	);
+}
 const checkpointPath = getCheckpointPath(process.env.IMGDATA_DIR);
 
 const manager = new SessionManager({

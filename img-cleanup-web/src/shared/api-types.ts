@@ -92,6 +92,8 @@ export interface ConfigDTO {
 	maxImageDimension: number;
 	bucketBoundaries: number[];
 	checkpointEnabled: boolean;
+	/** LLM provider 是否可用（false = 手动模式：自动选择与锦标赛禁用）。 */
+	llmAvailable: boolean;
 	standards: { name: string; count: number }[];
 	totalImages: number;
 }

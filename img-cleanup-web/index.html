@@ -88,7 +88,10 @@
 				<span>$sessionError</span>
 			</div>
 
-			<div c-show="!!currentBatch" class="mt-4">
+				<div c-show="view=='review' && session && !llmAvailable" class="alert alert-warning py-2 text-sm mt-2">
+					<span>LLM 未配置：自动选择不可用，请「手动挑选」逐批决定保留者；落选者超过目标数量时锦标赛淘汰无法执行</span>
+				</div>
+				<div c-show="!!currentBatch" class="mt-4">
 				<!-- 已裁决信息条 -->
 				<div c-show="currentBatch && currentBatch.status=='decided'" class="alert alert-success py-2 text-sm flex-col items-start sm:flex-row sm:items-center">
 					<span>保留 <b class="font-mono">${currentBatch && currentBatch.keptUrl ? imgName(currentBatch.keptUrl) : ''}</b>
@@ -134,7 +137,7 @@
 				<!-- 操作按钮 -->
 				<div class="flex flex-wrap gap-2 mt-3 items-center">
 					<div c-show="currentBatch && currentBatch.status=='pending' && !manualMode" class="flex gap-2">
-						<button class="btn btn-primary" :class="btn-disabled: busy" @click="auto">
+						<button c-show="llmAvailable" class="btn btn-primary" :class="btn-disabled: busy" @click="auto">
 							<span c-show="busy" class="loading loading-spinner loading-xs"></span>
 							自动选择（LLM）
 						</button>
@@ -157,7 +160,7 @@
 				</div>
 
 				<div class="flex flex-wrap gap-2 mt-4">
-					<button c-show="pendingCount > 0 && !manualMode" class="btn btn-secondary btn-outline btn-sm" :class="btn-disabled: running || busy" @click="runRemaining">
+					<button c-show="pendingCount > 0 && !manualMode && llmAvailable" class="btn btn-secondary btn-outline btn-sm" :class="btn-disabled: running || busy" @click="runRemaining">
 						<span c-show="running" class="loading loading-spinner loading-xs"></span>
 						自动完成剩余 $pendingCount 个批次
 					</button>

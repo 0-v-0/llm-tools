@@ -88,6 +88,23 @@ dev（HMR）与生产双模式一致性；且原图直载会让多图网格的�
 content-type），沿用会话白名单；前端全局弹层查看（非手动态点图 / 待移除
 清单点图 / 卡片「原图」按钮均可打开，Esc 关闭），缩略图仍是网格默认。
 
+### 8. LLM 不可用时回退手动模式（2026-09-27）
+
+resolveProviderConfig 无密钥时抛 ConfigError，曾导致服务启动即崩——但批次
+比较本就支持纯手动挑选，LLM 不是启动的必要条件。改为启动时捕获：provider
+置 null 并告警，服务照常监听。
+
+- **不可用面收窄到真正依赖 LLM 的操作**：auto / suggest / run-remaining /
+  锦标赛淘汰（finalize 时落选者 > m）返回 409；`run-remaining` 路由需在
+  fire-and-forget 之外显式守卫（服务端 catch 会吞掉异步 409）。
+- **前端按 `ConfigDTO.llmAvailable` 降级**：隐藏「自动选择」「自动完成剩余」
+  入口，review 视图显示提示条；手动挑选界面的 LLM 建议请求仅在可用时发起。
+- **裁决缓存以 manual 身份记录**：缓存键含 judge（provider/model），无 LLM
+  时以 `manual/manual` 记录——手动模式的裁决在手动模式会话间复用，但与真实
+  provider 的缓存互不复用（CLI 用真实密钥恢复时视为裁判变更，属可接受取舍：
+  不回退则根本无法启动）。
+- 落选者 ≤ m 的 finalize 不需要 LLM，手动模式可完整走到移动/dry-run。
+
 ## 踩坑记录（Cydon 模板约束）
 
 - `c-if` 在绑定期间会把节点从 DOM 摘除并替换为注释锚点，子节点绑定仍在挂载
