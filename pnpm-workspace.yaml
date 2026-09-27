@@ -5,6 +5,7 @@ packages:
   - "img-search"
   - "img-val"
   - "img-cleanup"
+  - "img-cleanup-web"
   - "tag-translator"
 
 allowBuilds:

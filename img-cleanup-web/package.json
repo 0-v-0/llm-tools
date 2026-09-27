@@ -1,0 +1,41 @@
+{
+	"name": "img-cleanup-web",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "Web UI for img-cleanup — interactive batch comparison with manual/auto selection",
+	"scripts": {
+		"dev": "concurrently -k -n server,web -c blue,green \"node --watch src/server/index.ts\" \"vite\"",
+		"dev:server": "node --watch src/server/index.ts",
+		"dev:web": "vite",
+		"build": "tsc -p tsconfig.server.json && vite build",
+		"start": "node dist-server/server/index.js",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json",
+		"lint": "pnpx oxlint --max-warnings=100"
+	},
+	"dependencies": {
+		"@cydon/ui": "link:../../cydon/packages/ui",
+		"@hono/node-server": "^2.1.1",
+		"@llm-image/shared": "workspace:*",
+		"cydon": "link:../../cydon/packages/cydon",
+		"hono": "^4.13.9",
+		"img-cleanup": "workspace:*",
+		"sharp": "^0.35.4"
+	},
+	"devDependencies": {
+		"@types/node": "^26.4.0",
+		"@unocss/transformer-directives": "^66.10.5",
+		"concurrently": "^10.0.5",
+		"daisyui": "^5.6.16",
+		"typescript": "^7.0.2",
+		"unocss": "^66.10.5",
+		"unocss-preset-daisyui-next": "^0.1.2",
+		"vite": "^8.3.1",
+		"vitest": "^4.1.11"
+	},
+	"engines": {
+		"node": ">=22.0.0"
+	}
+}
