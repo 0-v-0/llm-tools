@@ -15,7 +15,7 @@
 			<h1 class="text-xl font-bold">图片清理 <span class="text-sm font-normal opacity-50">img-cleanup-web</span></h1>
 			<div c-show="session" class="flex items-center gap-2">
 				<span class="badge badge-outline">共 ${session ? session.totalImages : totalImages} 张 · 目标移走 ${session?.m ?? ''} 张</span>
-				<span class="badge" :class="badge-info: session && session.status=='selecting'; badge-warning: session && session.status=='finalized'; badge-success: session && session.status=='moved'">${statusLabel(session?.status ?? '')}</span>
+				<span class="badge" :class="badge-info: session && session.status=='selecting'; badge-warning: session && (session.status=='tournament' || session.status=='finalized'); badge-success: session && session.status=='moved'">${statusLabel(session?.status ?? '')}</span>
 				<button class="btn btn-ghost btn-sm" :class="btn-disabled: busy" @click="abandon">放弃会话</button>
 			</div>
 		</div>
@@ -88,7 +88,7 @@
 			</div>
 
 				<div c-show="view=='review' && session && !llmAvailable" class="alert alert-warning py-2 text-sm mt-2">
-					<span>LLM 未配置：自动选择不可用，请「手动挑选」逐批决定保留者；落选者超过目标数量时锦标赛淘汰无法执行</span>
+					<span>LLM 未配置：自动选择不可用，请「手动挑选」逐批决定保留者；落选者超过目标数量时会进入加赛，由你逐对保留更好的一张</span>
 				</div>
 				<div c-show="!!currentBatch" class="mt-4">
 				<!-- 已裁决信息条 -->
@@ -169,6 +169,30 @@
 					</button>
 					<span c-show="pendingCount == 0 && session && session.status=='finalized'" class="text-sm opacity-60">已进入预览阶段，可继续调整裁决，系统会自动重赛并更新移除清单</span>
 				</div>
+			</div>
+		</div>
+
+		<!-- ============ 视图 2.5：手动加赛（LLM 未配置的锦标赛） ============ -->
+		<div c-show="view=='playoff' && session && tournament">
+			<div class="flex flex-wrap items-center gap-3 text-sm">
+				<span class="badge badge-warning badge-outline">加赛 · 第 ${tournament?.round ?? ''} 轮</span>
+				<span>剩余候选 ${tournament?.candidates ?? ''} 张 → 目标移走 ${session?.m ?? ''} 张</span>
+				<span c-show="tournament && tournament.byes.length > 0" class="opacity-60">轮空自动保留 ${tournament?.byes.length ?? 0} 张</span>
+			</div>
+			<div class="alert alert-info py-2 text-sm mt-2">
+				<span>每对保留更好的一张（另一张留在移除候选，直到候选数 ≤ 目标）。点击图片选中，双击直接确认。</span>
+			</div>
+			<div class="grid gap-4 mt-3" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">
+				<template c-for="pc; pairCards">
+					<div class="card bg-base-200 p-2 transition-all" :class="ring-2 ring-primary: pairPickIndex == pc.pairIndex && pairPickUrl == pc.url">
+						<div class="flex items-center justify-between mb-1">
+							<span class="badge badge-ghost badge-sm">对局 ${pc.pairIndex + 1}</span>
+							<button class="btn btn-ghost btn-xs" @click="openViewer(pc.url)">原图</button>
+						</div>
+						<figure><img class="w-full object-contain max-h-64 bg-base-300 cursor-pointer select-none" src="${thumbUrl(pc.url)}" alt="$pc.img.name" loading="lazy" @mouseover="previewOn(pc.url, pc.img.width, pc.img.name)" @mouseout="previewOff" @click="onPairClick(pc.pairIndex, pc.url)" @dblclick="onPairDblClick(pc.pairIndex, pc.url)"></figure>
+						<div class="p-1 text-xs truncate font-mono" title="$pc.img.name">$pc.img.name</div>
+					</div>
+				</template>
 			</div>
 		</div>
 

@@ -94,9 +94,9 @@ resolveProviderConfig 无密钥时抛 ConfigError，曾导致服务启动即崩�
 比较本就支持纯手动挑选，LLM 不是启动的必要条件。改为启动时捕获：provider
 置 null 并告警，服务照常监听。
 
-- **不可用面收窄到真正依赖 LLM 的操作**：auto / suggest / run-remaining /
-  锦标赛淘汰（finalize 时落选者 > m）返回 409；`run-remaining` 路由需在
-  fire-and-forget 之外显式守卫（服务端 catch 会吞掉异步 409）。
+- **不可用面收窄到真正依赖 LLM 的操作**：auto / suggest / run-remaining
+  返回 409；`run-remaining` 路由需在 fire-and-forget 之外显式守卫（服务端
+  catch 会吞掉异步 409）。锦标赛淘汰不在此列——转手动加赛（见第 10 条）。
 - **前端按 `ConfigDTO.llmAvailable` 降级**：隐藏「自动选择」「自动完成剩余」
   入口，review 视图显示提示条；手动挑选界面的 LLM 建议请求仅在可用时发起。
 - **裁决缓存以 manual 身份记录**：缓存键含 judge（provider/model），无 LLM
@@ -104,6 +104,25 @@ resolveProviderConfig 无密钥时抛 ConfigError，曾导致服务启动即崩�
   provider 的缓存互不复用（CLI 用真实密钥恢复时视为裁判变更，属可接受取舍：
   不回退则根本无法启动）。
 - 落选者 ≤ m 的 finalize 不需要 LLM，手动模式可完整走到移动/dry-run。
+
+### 10. 手动加赛：LLM 未配置的锦标赛（2026-09-27）
+
+落选者 > m 且无 LLM 时，曾以 409 终止 finalize——但锦标赛结构本身可以由
+人工裁决，逐个手选移除清单反而丢失「比较」语义（用户选定方案：加赛）。
+
+- **与自动锦标赛同构**：逐轮配对、每对保留 1 张（另一张留在移除候选）、
+  轮空自动保留，候选 ≤ m 后收束为移除清单。裁决经 `recordOverride` 写入
+  与 LLM 共用的配对缓存（url 集合主键、phase='tournament'）——轮次开始时
+  先吃掉缓存命中（含历史人工裁决与 LLM 结论），余下才待人工；改配 LLM
+  后同一批比较也不浪费。
+- **新会话状态 `'tournament'`**：DTO.tournament 携带轮次/候选数/轮空/待
+  裁决对局；写路径 `POST /tournament { pairIndex, keptUrl }`，每裁决一对
+  服务端即时推进轮次（本轮全部裁决完自动开下一轮或收束）。
+- **前端**：pairCards 把对局拍平成图片列表（避免模板嵌套 c-for），点击
+  选中、双击确认，与批次手选一致；加赛阶段拒绝调整批次裁决（会改变
+  落选者池，409）。
+- 注意 toRemove 可 < m：锦标赛终止条件是候选 ≤ m（轮空与配对奇偶所致），
+  与 CLI 语义一致。
 
 ### 9. 目标目录系统对话框与标准筛选输入（2026-09-27）
 

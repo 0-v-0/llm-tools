@@ -228,6 +228,9 @@ export class CleanupSession {
 		if (this.status === 'moved') {
 			throw new HttpError(409, '移动已完成，不能调整历史裁决');
 		}
+		if (this.status === 'tournament') {
+			throw new HttpError(409, '加赛进行中，不能调整批次裁决（会改变落选者池）');
+		}
 		if (this.running || this.moving) {
 			throw new HttpError(409, '重赛/移动进行中，请稍候');
 		}
@@ -313,9 +316,10 @@ export class CleanupSession {
 	}
 
 	/**
-	 * 计算/重算选择结果（「重赛」）：落选者 ≤ m 直接全部移走，否则锦标赛
-	 * 淘汰。幂等——可在首次预览前、也可在调整历史裁决后随时调用；锦标赛
-	 * 配对按 url 集合缓存，未受影响的配对不会重复调用 LLM。
+	 * 计算/重算选择结果（「重赛」）：落选者 ≤ m 直接全部移走；否则锦标赛
+	 * 淘汰——LLM 可用时自动执行，不可用时进入手动加赛（status='tournament'，
+	 * 逐对由用户裁定）。幂等——可在首次预览前、也可在调整历史裁决后随时
+	 * 调用；配对按 url 集合缓存，未受影响的配对不会重复裁决。
 	 */
 	async recomputeSelection(): Promise<void> {
 		if (this.status === 'moved') {
@@ -327,32 +331,35 @@ export class CleanupSession {
 		if (this.pendingCount > 0) {
 			throw new HttpError(409, `还有 ${this.pendingCount} 个批次未决定`);
 		}
-		// 需要锦标赛时先校验 LLM——在任何状态变更之前抛出（不进 try），
-		// 避免被误报为「重赛失败」并污染 session.error。
-		const provider =
-			this.losers.length > this.m
-				? this.requireProvider(`锦标赛淘汰（落选者 ${this.losers.length} 张超过目标 ${this.m} 张）`)
-				: null;
+		const allLosers = this.losers;
+		if (allLosers.length <= this.m) {
+			this.toRemove = allLosers;
+			this.tournamentUsed = false;
+			this.tournamentRounds = [];
+			this.checkpoint?.setToRemoveUrls(this.toRemove.map((i) => i.url));
+			this.status = 'finalized';
+			this.error = undefined;
+			this.notify();
+			return;
+		}
+		if (!this.deps.provider) {
+			// LLM 不可用：进入手动加赛，逐对保留更好的一张
+			this.startManualTournament(allLosers);
+			return;
+		}
 		this.running = true;
 		this.notify();
 		try {
-			const allLosers = this.losers;
-			if (!provider) {
-				this.toRemove = allLosers;
-				this.tournamentUsed = false;
-				this.tournamentRounds = [];
-			} else {
-				const outcome = await runTournament(
-					allLosers,
-					this.m,
-					provider,
-					this.deps.config.maxImageDimension,
-					this.checkpoint,
-				);
-				this.toRemove = outcome.survivors;
-				this.tournamentUsed = true;
-				this.tournamentRounds = outcome.rounds;
-			}
+			const outcome = await runTournament(
+				allLosers,
+				this.m,
+				this.deps.provider,
+				this.deps.config.maxImageDimension,
+				this.checkpoint,
+			);
+			this.toRemove = outcome.survivors;
+			this.tournamentUsed = true;
+			this.tournamentRounds = outcome.rounds;
 			this.checkpoint?.setToRemoveUrls(this.toRemove.map((i) => i.url));
 			this.status = 'finalized';
 			this.error = undefined;
@@ -363,6 +370,106 @@ export class CleanupSession {
 			this.running = false;
 			this.notify();
 		}
+	}
+
+	// ---------- 手动加赛（LLM 未配置的锦标赛） ----------
+
+	/** 当前移除候选（加赛逐轮淘汰至 ≤ m）。 */
+	private tournamentCandidates: ImageEntry[] = [];
+	private tournamentRoundNum = 0;
+	/** 本轮待人工裁决的对局。 */
+	private pendingPairs: Array<{ index: number; a: ImageEntry; b: ImageEntry }> = [];
+	/** 本轮已裁决对局（缓存命中 + 人工）。 */
+	private roundResolvedPairs: TournamentRound['pairs'] = [];
+	private roundByes: ImageEntry[] = [];
+
+	/** 进入手动加赛：与自动锦标赛同构，逐轮配对，每对保留 1 张。 */
+	private startManualTournament(candidates: ImageEntry[]): void {
+		this.tournamentCandidates = [...candidates];
+		this.tournamentRoundNum = 0;
+		this.tournamentUsed = false;
+		this.tournamentRounds = [];
+		this.toRemove = [];
+		this.status = 'tournament';
+		this.error = undefined;
+		this.nextRound();
+		this.notify();
+	}
+
+	/** 开始一轮：先吃掉缓存命中的对局（含历史人工裁决），余下的待人工裁决。 */
+	private nextRound(): void {
+		this.tournamentRoundNum++;
+		const current = this.tournamentCandidates;
+		const pairs: TournamentRound['pairs'] = [];
+		const pending: Array<{ index: number; a: ImageEntry; b: ImageEntry }> = [];
+		let index = 0;
+		for (let i = 0; i + 1 < current.length; i += 2) {
+			const a = current[i]!;
+			const b = current[i + 1]!;
+			const hit = this.checkpoint?.lookup([a.url, b.url]);
+			if (hit) {
+				const kept = hit.keptUrl === a.url ? a : hit.keptUrl === b.url ? b : null;
+				if (kept) {
+					pairs.push({ pair: [a, b], kept, eliminated: kept === a ? b : a, reason: hit.reason });
+					continue;
+				}
+			}
+			pending.push({ index: index++, a, b });
+		}
+		this.roundResolvedPairs = pairs;
+		this.pendingPairs = pending;
+		this.roundByes = current.length % 2 === 1 ? [current[current.length - 1]!] : [];
+		if (pending.length === 0) this.closeRound();
+	}
+
+	/** 本轮全部裁决完毕：淘汰者成为下一轮候选（轮空脱离候选），直至 ≤ m。 */
+	private closeRound(): void {
+		this.tournamentRounds.push({
+			round: this.tournamentRoundNum,
+			pairs: this.roundResolvedPairs,
+			byes: this.roundByes,
+		});
+		this.tournamentCandidates = this.roundResolvedPairs.map((p) => p.eliminated);
+		if (this.tournamentCandidates.length > this.m) {
+			this.nextRound();
+			return;
+		}
+		this.toRemove = [...this.tournamentCandidates];
+		this.tournamentUsed = true;
+		this.checkpoint?.setToRemoveUrls(this.toRemove.map((i) => i.url));
+		this.status = 'finalized';
+	}
+
+	/**
+	 * 人工裁决一对加赛：保留 keptUrl，另一张留在移除候选。与 LLM 裁决同构
+	 * 写入 checkpoint 配对缓存（recordOverride，可覆盖同 key 结论）。
+	 */
+	decidePair(pairIndex: number, keptUrl: string): SessionDTO {
+		if (this.status !== 'tournament') {
+			throw new HttpError(409, `当前不在加赛阶段（${this.status}）`);
+		}
+		if (this.running || this.moving) {
+			throw new HttpError(409, '重赛/移动进行中，请稍候');
+		}
+		const p = this.pendingPairs.find((x) => x.index === pairIndex);
+		if (!p) throw new HttpError(400, `对局不存在或已裁决: ${pairIndex}`);
+		if (keptUrl !== p.a.url && keptUrl !== p.b.url) {
+			throw new HttpError(400, `keptUrl 不属于对局 ${pairIndex}: ${keptUrl}`);
+		}
+		const kept = keptUrl === p.a.url ? p.a : p.b;
+		const eliminated = kept === p.a ? p.b : p.a;
+		this.checkpoint?.recordOverride({
+			urls: [p.a.url, p.b.url].sort(),
+			keptUrl,
+			loserUrls: [eliminated.url],
+			reason: '手动选择',
+			phase: 'tournament',
+		});
+		this.roundResolvedPairs.push({ pair: [p.a, p.b], kept, eliminated, reason: '手动选择' });
+		this.pendingPairs = this.pendingPairs.filter((x) => x.index !== pairIndex);
+		if (this.pendingPairs.length === 0) this.closeRound();
+		this.notify();
+		return this.toDTO();
 	}
 
 	/**
@@ -426,6 +533,15 @@ export class CleanupSession {
 			moveResults: this.moveResults.map(moveDTO),
 			notes: this.notes,
 			...(this.error !== undefined ? { error: this.error } : {}),
+			tournament:
+				this.status === 'tournament'
+					? {
+							round: this.tournamentRoundNum,
+							candidates: this.tournamentCandidates.length,
+							byes: this.roundByes.map(toImageDTO),
+							pending: this.pendingPairs.map((p) => ({ index: p.index, a: toImageDTO(p.a), b: toImageDTO(p.b) })),
+						}
+					: null,
 			running: this.running,
 			moving: this.moving,
 		};

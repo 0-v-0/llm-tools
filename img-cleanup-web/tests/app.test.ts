@@ -333,7 +333,7 @@ describe('手动模式（provider: null）', () => {
 		expect(fin.toRemoveImages).toHaveLength(2);
 	});
 
-	test('落选 > m 时 finalize → 409（锦标赛需要 LLM）', async () => {
+	test('落选 > m → finalize 进入手动加赛，逐对裁决至完成', async () => {
 		const session = await createSession('1');
 		for (const [i, b] of session.batches.entries()) {
 			await app.request(`/api/sessions/${session.id}/batches/${i}/manual`, {
@@ -342,15 +342,54 @@ describe('手动模式（provider: null）', () => {
 				body: JSON.stringify({ keptUrl: b.images[0].url }),
 			});
 		}
-		const fin = await app.request(`/api/sessions/${session.id}/finalize`, { method: 'POST' });
-		expect(fin.status).toBe(409);
-		const body = await fin.json();
-		expect(body.error).toContain('锦标赛');
-		expect(body.error).toContain('LLM');
-		// 校验在任何状态变更前发生：会话未被标记错误、仍处于选择阶段
-		const after = await (await app.request(`/api/sessions/${session.id}`)).json();
-		expect(after.error).toBeUndefined();
-		expect(after.status).toBe('selecting');
-		expect(after.running).toBe(false);
+		const fin = await (await app.request(`/api/sessions/${session.id}/finalize`, { method: 'POST' })).json();
+		expect(fin.status).toBe('tournament');
+		expect(fin.tournament).not.toBeNull();
+		expect(fin.tournament.candidates).toBe(2);
+		expect(fin.tournament.pending).toHaveLength(1);
+		const pair = fin.tournament.pending[0];
+
+		// 保留 pair.a → pair.b 成为唯一移除候选（= m），直接收束
+		const dec = await (
+			await app.request(`/api/sessions/${session.id}/tournament`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ pairIndex: pair.index, keptUrl: pair.a.url }),
+			})
+		).json();
+		expect(dec.status).toBe('finalized');
+		expect(dec.tournamentUsed).toBe(true);
+		expect(dec.tournament).toBeNull();
+		expect(dec.toRemoveImages.map((i: { url: string }) => i.url)).toEqual([pair.b.url]);
+
+		// 干运行移动
+		const mv = await (await app.request(`/api/sessions/${session.id}/move`, { method: 'POST' })).json();
+		expect(mv.status).toBe('moved');
+		expect(mv.moveResults.every((r: { status: string }) => r.status === 'dry-run')).toBe(true);
+	});
+
+	test('加赛裁决校验：非法 keptUrl / 未知对局 / 重复裁决', async () => {
+		const session = await createSession('1');
+		for (const [i, b] of session.batches.entries()) {
+			await app.request(`/api/sessions/${session.id}/batches/${i}/manual`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ keptUrl: b.images[0].url }),
+			});
+		}
+		await app.request(`/api/sessions/${session.id}/finalize`, { method: 'POST' });
+		const post = (body: object) =>
+			app.request(`/api/sessions/${session.id}/tournament`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(body),
+			});
+		expect((await post({ pairIndex: 0, keptUrl: 'file:///x.png' })).status).toBe(400);
+		expect((await post({ pairIndex: 9, keptUrl: 'file:///x.png' })).status).toBe(400);
+		// 对局 0 裁决后（候选收束至 m，会话进入 finalized）再裁决同一对 → 409
+		const created = await (await app.request(`/api/sessions/${session.id}`)).json();
+		const pair = created.tournament.pending[0];
+		await post({ pairIndex: pair.index, keptUrl: pair.a.url });
+		expect((await post({ pairIndex: pair.index, keptUrl: pair.b.url })).status).toBe(409);
 	});
 });

@@ -59,7 +59,25 @@ export interface MoveResultDTO {
 	error?: string;
 }
 
-export type SessionStatus = 'selecting' | 'finalized' | 'moved';
+export type SessionStatus = 'selecting' | 'tournament' | 'finalized' | 'moved';
+
+/** 手动加赛中待裁决的对局（LLM 未配置时锦标赛逐对由用户裁定）。 */
+export interface PendingPairDTO {
+	index: number;
+	a: ImageDTO;
+	b: ImageDTO;
+}
+
+/** 手动加赛进行中的锦标赛状态（仅 status='tournament' 时非空）。 */
+export interface TournamentStateDTO {
+	round: number;
+	/** 当前移除候选数（> m 时继续加赛）。 */
+	candidates: number;
+	/** 本轮轮空自动保留的图片。 */
+	byes: ImageDTO[];
+	/** 本轮待人工裁决的对局。 */
+	pending: PendingPairDTO[];
+}
 
 export interface SessionDTO {
 	id: string;
@@ -81,6 +99,8 @@ export interface SessionDTO {
 	notes: string[];
 	/** 重赛 / 移动等后台任务的最新失败信息（成功后清空）。 */
 	error?: string;
+	/** 手动加赛状态（status='tournament' 时非空）。 */
+	tournament: TournamentStateDTO | null;
 	/** run-remaining 或重赛正在后台执行。 */
 	running: boolean;
 	/** 文件移动正在执行（期间拒绝一切调整/重赛/再次移动）。 */
@@ -111,6 +131,12 @@ export interface CreateSessionBody {
 export interface ManualDecisionBody {
 	keptUrl: string;
 	reason?: string;
+}
+
+/** POST /api/sessions/:id/tournament 请求体：手动裁决一对加赛。 */
+export interface TournamentDecisionBody {
+	pairIndex: number;
+	keptUrl: string;
 }
 
 /** POST /api/pick-folder 响应：用户取消时 path 为 null。 */
