@@ -18,6 +18,15 @@ export interface BatchResult {
 	reason: string;
 }
 
+export interface SelectOptions {
+	/**
+	 * 获取建议但不写入裁决缓存（默认 true）。
+	 * Web UI 手动挑选场景：先展示 LLM 建议，若用户最终改选，
+	 * 缓存中不应留下未被采纳的 LLM 裁决。
+	 */
+	record?: boolean;
+}
+
 /**
  * For a single batch, call the LLM to pick 1 "most worth keeping".
  * Returns the kept image and the losers (n-1 images).
@@ -27,12 +36,14 @@ export interface BatchResult {
  * @param checkpoint Optional verdict cache. On a cache hit keyed by the batch's
  *   URL-set, the LLM call is skipped and the cached kept/losers are returned.
  *   Cache misses call the LLM and record the new verdict.
+ * @param opts Set `record: false` to skip writing the verdict to the cache.
  */
 export async function selectFromBatch(
 	batch: Batch,
 	provider: LLMProvider,
 	maxImageDimension: number,
 	checkpoint?: Checkpoint,
+	opts?: SelectOptions,
 ): Promise<{ result: BatchResult; reused: boolean }> {
 	// Auto-keep if only 1 image (no LLM call, no caching needed)
 	if (batch.images.length === 1) {
@@ -102,7 +113,7 @@ export async function selectFromBatch(
 		reason: parsed.reason,
 	};
 
-	if (checkpoint) {
+	if (checkpoint && opts?.record !== false) {
 		checkpoint.record({
 			urls: [...urls].sort(),
 			keptUrl: result.kept.url,
@@ -119,7 +130,7 @@ export async function selectFromBatch(
  * Restore a BatchResult from a cached verdict.
  * Returns null when the verdict references URLs no longer in the batch.
  */
-function restoreFromVerdict(batch: Batch, verdict: Verdict): BatchResult | null {
+export function restoreFromVerdict(batch: Batch, verdict: Verdict): BatchResult | null {
 	const byUrl = new Map(batch.images.map((i) => [i.url, i]));
 	const kept = byUrl.get(verdict.keptUrl);
 	if (!kept) return null;

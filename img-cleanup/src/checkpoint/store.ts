@@ -147,6 +147,24 @@ export class Checkpoint {
 		this.save();
 	}
 
+	/**
+	 * 记录裁决，同 key 已有裁决时覆盖（人工改选场景：确保人工结果
+	 * 优先于缓存中的 LLM 裁决，后续运行（含 CLI --resume）读到的都是人工结论）。
+	 */
+	recordOverride(verdict: Verdict): void {
+		const key = verdictKey(verdict.urls);
+		const v: Verdict = { ...verdict, urls: [...verdict.urls].sort() };
+		if (this.index.has(key)) {
+			const i = this.data.verdicts.findIndex((x) => verdictKey(x.urls) === key);
+			if (i >= 0) this.data.verdicts[i] = v;
+		} else {
+			this.data.verdicts.push(v);
+			this.recorded++;
+		}
+		this.index.set(key, v);
+		this.save();
+	}
+
 	/** 已缓存的裁决总数。 */
 	get size(): number {
 		return this.index.size;
