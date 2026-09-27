@@ -105,6 +105,20 @@ resolveProviderConfig 无密钥时抛 ConfigError，曾导致服务启动即崩�
   不回退则根本无法启动）。
 - 落选者 ≤ m 的 finalize 不需要 LLM，手动模式可完整走到移动/dry-run。
 
+### 9. 目标目录系统对话框与标准筛选输入（2026-09-27）
+
+- **文件夹选择由后端代开**（用户选定）：`POST /api/pick-folder` 经
+  PowerShell 调 Windows FolderBrowserDialog。不用浏览器的
+  `showDirectoryPicker`：它仅 Chromium 支持且会授予浏览器侧文件系统权限，
+  与「文件系统操作全部在后端」的架构不一致；后端对话框则任何浏览器可用。
+  细节：TopMost 隐藏窗体作 owner 防被浏览器窗口遮挡、
+  `[Console]::OutputEncoding = UTF8` 兼容中文路径、模态阻塞期间幂等互斥
+  （409）、5 分钟超时兜底。取消返回 `{ path: null }`。
+- **估值标准改可筛选输入框**：标准按钮组在标准多时不可用。用原生
+  `<input list>` + `<datalist>`，候选在 config 变化时命令式填充（datalist
+  内不放 cydon 模板，避开 c-for 对父节点绑定的历史约束）；留空 = 全部标准，
+  服务端照旧 trim。
+
 ## 踩坑记录（Cydon 模板约束）
 
 - `c-if` 在绑定期间会把节点从 DOM 摘除并替换为注释锚点，子节点绑定仍在挂载

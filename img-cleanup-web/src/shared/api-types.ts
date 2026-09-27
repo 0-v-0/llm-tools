@@ -112,3 +112,8 @@ export interface ManualDecisionBody {
 	keptUrl: string;
 	reason?: string;
 }
+
+/** POST /api/pick-folder 响应：用户取消时 path 为 null。 */
+export interface PickFolderDTO {
+	path: string | null;
+}

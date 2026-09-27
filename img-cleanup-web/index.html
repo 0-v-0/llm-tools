@@ -31,20 +31,19 @@
 					</label>
 					<label class="label w-full max-w-xs flex-col items-start gap-1">
 						<span>目标目录（待移除图片移动至此）</span>
-						<input c-model.lazy="targetDir" class="input input-bordered input-sm w-full font-mono" placeholder="D:\pictures\trash">
+						<div class="flex w-full gap-1">
+							<input c-model.lazy="targetDir" class="input input-bordered input-sm w-full font-mono" placeholder="D:\pictures\trash">
+							<button class="btn btn-outline btn-sm shrink-0" :class="btn-disabled: busy" @click="pickFolder">选择文件夹…</button>
+						</div>
 					</label>
 						<label class="label w-full max-w-xs flex-col items-start gap-1">
 							<span>批次大小 n（LLM 每批比较 n 张选 1 张保留，2–100）</span>
 							<input c-model.lazy="formBatchSize" class="input input-bordered input-sm w-full" type="number" min="2" max="100">
 						</label>
 					<label class="label w-full max-w-xs flex-col items-start gap-1">
-						<span>估值标准</span>
-							<div class="flex flex-wrap gap-1">
-								<button class="btn btn-xs" :class="btn-primary: !standard; btn-outline: !!standard" @click="setStandard('')">全部标准</button>
-								<template c-for="s; standards">
-									<button class="btn btn-xs" :class="btn-primary: standard == s.name; btn-outline: standard != s.name" @click="setStandard(s.name)">$s.name（$s.count）</button>
-								</template>
-							</div>
+						<span>估值标准（输入以筛选，留空 = 全部标准）</span>
+						<input c-model="standard" class="input input-bordered input-sm w-full" list="standard-options" placeholder="输入以筛选估值标准…">
+						<datalist id="standard-options"></datalist>
 					</label>
 					<label class="label w-full max-w-xs flex-col items-start gap-1">
 						<span>路径过滤（每行一个 glob，留空处理全部）</span>
