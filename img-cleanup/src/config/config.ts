@@ -4,11 +4,14 @@ import { parse } from 'smol-toml';
 import { z } from 'zod';
 import { getConfigPath } from './paths.ts';
 
+/** 批次大小 n 的上限：过大的批次会超出 LLM 上下文并降低比较可靠性。 */
+export const MAX_BATCH_SIZE = 100;
+
 const configSchema = z.object({
 	// LLM provider 配置（非密钥字段：显式设置的环境变量优先）。
 	llm: createLlmConfigSchema('high'),
 	/** 每个批次中图片的数量 n，LLM 从中选 1 张最值得保留。默认 2 */
-	batchSize: z.number().int().min(2).default(2),
+	batchSize: z.number().int().min(2).max(MAX_BATCH_SIZE).default(2),
 	/** 送入 LLM 前最长边像素限制。与 img-val 一致 */
 	maxImageDimension: z.number().int().positive().default(1568),
 	/** 估值分桶边界（按 max_value）。默认对应 default-photo 标准参考价格区间 */
