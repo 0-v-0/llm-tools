@@ -1,6 +1,6 @@
 import { StorageError } from '@llm-image/shared';
 import { QdrantClient, type QdrantClientParams } from '@qdrant/js-client-rest';
-import { toErrorMessage } from '../util/error-message.js';
+import { toErrorMessage } from '../util/error-message.ts';
 
 export interface QdrantPoint {
 	id: number;

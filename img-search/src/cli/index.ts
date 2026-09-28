@@ -1,7 +1,7 @@
 import { Command } from 'commander';
-import { importCommand } from './import.js';
-import { searchCommand } from './search.js';
-import { statusCommand } from './status.js';
+import { importCommand } from './import.ts';
+import { searchCommand } from './search.ts';
+import { statusCommand } from './status.ts';
 
 export function createProgram(): Command {
 	const program = new Command();

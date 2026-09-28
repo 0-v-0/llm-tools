@@ -6,7 +6,7 @@ import {
 	parseMinResponse,
 	parseMaxResponse,
 	meanLogprobForValue,
-} from '../../src/llm/response-parser.js';
+} from '../../src/llm/response-parser.ts';
 
 describe('response-parser', () => {
 	it('parses clean JSON', () => {

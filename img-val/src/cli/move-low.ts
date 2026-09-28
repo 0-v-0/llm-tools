@@ -3,10 +3,10 @@ import { Command } from 'commander';
 import { existsSync, mkdirSync } from 'node:fs';
 import { rename } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
-import { loadEnv } from '../config/env.js';
-import { bootstrap } from '../config/paths.js';
-import { fileUrlToPath, toFileUrl } from '../util/url.js';
-import { registerLinkForFile, updateLinksForMove } from '../fileindex.js';
+import { loadEnv } from '../config/env.ts';
+import { bootstrap } from '../config/paths.ts';
+import { fileUrlToPath, toFileUrl } from '../util/url.ts';
+import { registerLinkForFile, updateLinksForMove } from '../fileindex.ts';
 import {
 	findLowValueFiles,
 	findLowestNFiles,
@@ -14,9 +14,9 @@ import {
 	getMaxValueByUrl,
 	updateRecordUrl,
 	type LowValueFile,
-} from '../storage/repository.move.js';
-import { renderMoveResults, type MoveResult } from './output/table.js';
-import { FORMAT_FLAGS, FORMAT_DESCRIPTION, isJsonFormat } from './output/format.js';
+} from '../storage/repository.move.ts';
+import { renderMoveResults, type MoveResult } from './output/table.ts';
+import { FORMAT_FLAGS, FORMAT_DESCRIPTION, isJsonFormat } from './output/format.ts';
 
 type CollisionMode = 'skip' | 'rename' | 'abort' | 'keep-max';
 

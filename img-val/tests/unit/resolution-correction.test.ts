@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeResolutionCorrection } from '../../src/valuation/resolution-correction.js';
+import { computeResolutionCorrection } from '../../src/valuation/resolution-correction.ts';
 
 describe('resolution-correction', () => {
 	it('returns multiplier 1 when no size_correction is provided', () => {

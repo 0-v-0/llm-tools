@@ -1,8 +1,8 @@
 import { AppError } from '@llm-image/shared';
 import { Command } from 'commander';
-import { loadEnv } from '../config/env.js';
-import { bootstrap } from '../config/paths.js';
-import { countByStatus, countTotal } from '../storage/repository.image.js';
+import { loadEnv } from '../config/env.ts';
+import { bootstrap } from '../config/paths.ts';
+import { countByStatus, countTotal } from '../storage/repository.image.ts';
 
 export const statusCommand = new Command('status')
 	.description('显示图片库状态')

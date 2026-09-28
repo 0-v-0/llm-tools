@@ -1,6 +1,6 @@
 import { openSqlite, type DB } from '@llm-image/shared';
 import { join } from 'node:path';
-import { getDbPath } from '../config/paths.js';
+import { getDbPath } from '../config/paths.ts';
 
 let dbInstance: DB | null = null;
 

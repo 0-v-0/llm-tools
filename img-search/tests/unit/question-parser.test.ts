@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseQuestionsResponse } from '../../src/search/question-parser.js';
+import { parseQuestionsResponse } from '../../src/search/question-parser.ts';
 
 describe('parseQuestionsResponse', () => {
 	it('parses tool call arguments', () => {

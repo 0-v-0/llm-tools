@@ -1,5 +1,5 @@
-import type { ValuationRecord } from '../../storage/types.js';
-import type { ValuationResult } from '../../valuation/engine.js';
+import type { ValuationRecord } from '../../storage/types.ts';
+import type { ValuationResult } from '../../valuation/engine.ts';
 
 export function renderJson(result: ValuationResult): string {
 	return JSON.stringify(result, null, 2);

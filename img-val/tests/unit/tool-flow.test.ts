@@ -8,12 +8,12 @@ import type {
 	CompleteRequest,
 	CompleteResponse,
 	LLMMessage,
-} from '../../src/llm/provider.js';
-import { setDb, closeDb } from '../../src/storage/db.js';
-import * as valuationRepo from '../../src/storage/repository.valuation.js';
-import { executeToolCall } from '../../src/valuation/tools.js';
-import { runToolFlow } from '../../src/valuation/tool-flow.js';
-import { extractExif } from '../../src/valuation/exif.js';
+} from '../../src/llm/provider.ts';
+import { setDb, closeDb } from '../../src/storage/db.ts';
+import * as valuationRepo from '../../src/storage/repository.valuation.ts';
+import { executeToolCall } from '../../src/valuation/tools.ts';
+import { runToolFlow } from '../../src/valuation/tool-flow.ts';
+import { extractExif } from '../../src/valuation/exif.ts';
 
 const require = createRequire(import.meta.url);
 const { DatabaseSync } = require('node:sqlite');

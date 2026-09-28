@@ -1,8 +1,8 @@
 import { ConfigError } from '@llm-image/shared';
-import type { AppConfig } from '../config/config.js';
-import type { EnvConfig } from '../config/env.js';
-import type { EmbeddingProvider } from './provider.js';
-import { JinaEmbeddingProvider } from './jina.js';
+import type { AppConfig } from '../config/config.ts';
+import type { EnvConfig } from '../config/env.ts';
+import type { EmbeddingProvider } from './provider.ts';
+import { JinaEmbeddingProvider } from './jina.ts';
 
 export function createEmbeddingProvider(env: EnvConfig, config: AppConfig): EmbeddingProvider {
 	if (!env.JINA_API_KEY) {

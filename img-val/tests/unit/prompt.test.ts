@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { ProcessedImage } from '@llm-image/shared';
-import type { Standard } from '../../src/standards/parser.js';
-import { buildPrompt } from '../../src/llm/prompt.js';
+import type { Standard } from '../../src/standards/parser.ts';
+import { buildPrompt } from '../../src/llm/prompt.ts';
 
 describe('prompt', () => {
 	const mockStandard: Standard = {

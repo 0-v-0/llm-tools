@@ -1,6 +1,6 @@
-import { matchesAnyGlob } from '../util/path-match.js';
-import { fileUrlToPath } from '../util/url.js';
-import { getDb } from './db.js';
+import { matchesAnyGlob } from '../util/path-match.ts';
+import { fileUrlToPath } from '../util/url.ts';
+import { getDb } from './db.ts';
 
 export interface LowValueFile {
 	url: string;

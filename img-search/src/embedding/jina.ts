@@ -1,6 +1,6 @@
 import { LLMError } from '@llm-image/shared';
-import { toErrorMessage } from '../util/error-message.js';
-import type { EmbeddingProvider } from './provider.js';
+import { toErrorMessage } from '../util/error-message.ts';
+import type { EmbeddingProvider } from './provider.ts';
 
 interface JinaConfig {
 	apiKey: string;

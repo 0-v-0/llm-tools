@@ -1,12 +1,12 @@
 import { AppError } from '@llm-image/shared';
 import { Command } from 'commander';
-import type { SearchParams, ImageFormat } from '../storage/types.js';
-import { loadEnv } from '../config/env.js';
-import { bootstrap } from '../config/paths.js';
-import { search, searchByText } from '../storage/repository.search.js';
-import { renderRecordsJson } from './output/json.js';
-import { renderSearchResults } from './output/table.js';
-import { FORMAT_FLAGS, FORMAT_DESCRIPTION, isJsonFormat } from './output/format.js';
+import type { SearchParams, ImageFormat } from '../storage/types.ts';
+import { loadEnv } from '../config/env.ts';
+import { bootstrap } from '../config/paths.ts';
+import { search, searchByText } from '../storage/repository.search.ts';
+import { renderRecordsJson } from './output/json.ts';
+import { renderSearchResults } from './output/table.ts';
+import { FORMAT_FLAGS, FORMAT_DESCRIPTION, isJsonFormat } from './output/format.ts';
 
 interface SearchOptions {
 	filter?: string[];

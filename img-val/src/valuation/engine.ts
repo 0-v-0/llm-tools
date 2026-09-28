@@ -5,11 +5,11 @@ import type {
 	UsageInfo,
 	ResponseSchema,
 } from '@llm-image/shared';
-import type { EnvConfig } from '../config/env.js';
-import type { AppConfig } from '../config/config.js';
-import type { Standard } from '../standards/parser.js';
-import type { Confidence, ImageFormat } from '../storage/types.js';
-import { buildPrompt } from '../llm/prompt.js';
+import type { EnvConfig } from '../config/env.ts';
+import type { AppConfig } from '../config/config.ts';
+import type { Standard } from '../standards/parser.ts';
+import type { Confidence, ImageFormat } from '../storage/types.ts';
+import { buildPrompt } from '../llm/prompt.ts';
 import {
 	parseMinResponse,
 	parseMaxResponse,
@@ -19,19 +19,19 @@ import {
 	SUBMIT_VALUATION_TOOL,
 	type ParsedMinValue,
 	type ParsedMaxValue,
-} from '../llm/response-parser.js';
+} from '../llm/response-parser.ts';
 import {
 	insert as insertValuation,
 	count as countValuations,
-} from '../storage/repository.valuation.js';
-import { runToolFlow, type ToolFlowResult } from './tool-flow.js';
+} from '../storage/repository.valuation.ts';
+import { runToolFlow, type ToolFlowResult } from './tool-flow.ts';
 import {
 	candidateValuesFromLogprobs,
 	expectationDecode,
-} from './expected-decode.js';
-import { computeResolutionCorrection } from './resolution-correction.js';
-import { logFailedRequest } from '../util/fail-log.js';
-import { GET_EXIF_TOOL, SEARCH_VALUATIONS_TOOL } from './tools.js';
+} from './expected-decode.ts';
+import { computeResolutionCorrection } from './resolution-correction.ts';
+import { logFailedRequest } from '../util/fail-log.ts';
+import { GET_EXIF_TOOL, SEARCH_VALUATIONS_TOOL } from './tools.ts';
 
 let dbHasRecords: boolean | null = null;
 

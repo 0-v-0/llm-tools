@@ -12,11 +12,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { moveLowCommand } from '../../src/cli/move-low.js';
-import type { ValuationInsert } from '../../src/storage/types.js';
-import { setDb, closeDb } from '../../src/storage/db.js';
-import * as valuationRepo from '../../src/storage/repository.valuation.js';
-import * as searchRepo from '../../src/storage/repository.search.js';
+import { moveLowCommand } from '../../src/cli/move-low.ts';
+import type { ValuationInsert } from '../../src/storage/types.ts';
+import { setDb, closeDb } from '../../src/storage/db.ts';
+import * as valuationRepo from '../../src/storage/repository.valuation.ts';
+import * as searchRepo from '../../src/storage/repository.search.ts';
 
 const require = createRequire(import.meta.url);
 const { DatabaseSync } = require('node:sqlite');

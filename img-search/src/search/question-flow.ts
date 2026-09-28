@@ -1,8 +1,8 @@
 import type { LLMProvider } from '@llm-image/shared';
-import type { CandidateInfo, QuestionHistoryEntry } from './question-prompt.js';
-import type { ParsedQuestion } from './question-parser.js';
-import { parseQuestionsResponse, createQuestionsTool } from './question-parser.js';
-import { buildQuestionPrompt } from './question-prompt.js';
+import type { CandidateInfo, QuestionHistoryEntry } from './question-prompt.ts';
+import type { ParsedQuestion } from './question-parser.ts';
+import { parseQuestionsResponse, createQuestionsTool } from './question-parser.ts';
+import { buildQuestionPrompt } from './question-prompt.ts';
 
 export interface GenerateQuestionsOptions {
 	llm: LLMProvider;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Beam } from '../../src/search/beam.js';
+import { Beam } from '../../src/search/beam.ts';
 
 describe('Beam', () => {
 	it('starts empty', () => {

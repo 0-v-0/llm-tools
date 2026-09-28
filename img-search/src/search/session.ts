@@ -1,5 +1,5 @@
-import type { ParsedQuestion } from './question-parser.js';
-import { Beam } from './beam.js';
+import type { ParsedQuestion } from './question-parser.ts';
+import { Beam } from './beam.ts';
 
 export interface QuestionRecord {
 	question: ParsedQuestion;

@@ -1,8 +1,8 @@
 import { StandardError } from '@llm-image/shared';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, extname, isAbsolute } from 'node:path';
-import { getStandardsDir, getBuiltinStandardsDir } from '../config/paths.js';
-import { parseStandard, type Standard } from './parser.js';
+import { getStandardsDir, getBuiltinStandardsDir } from '../config/paths.ts';
+import { parseStandard, type Standard } from './parser.ts';
 
 function looksLikePath(ref: string): boolean {
 	return isAbsolute(ref) || ref.includes('/') || ref.includes('\\') || extname(ref) === '.md';

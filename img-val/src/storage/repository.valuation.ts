@@ -1,5 +1,5 @@
-import type { ValuationInsert, ValuationRecord } from './types.js';
-import { getDb } from './db.js';
+import type { ValuationInsert, ValuationRecord } from './types.ts';
+import { getDb } from './db.ts';
 
 function rowToRecord(row: Record<string, unknown>): ValuationRecord {
 	return {

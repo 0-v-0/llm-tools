@@ -1,6 +1,6 @@
 import type { ProcessedImage, LLMMessage } from '@llm-image/shared';
-import type { Standard } from '../standards/parser.js';
-import { decodeUrl } from '../util/url.js';
+import type { Standard } from '../standards/parser.ts';
+import { decodeUrl } from '../util/url.ts';
 
 export interface BuiltPrompt {
 	systemPrompt: string;

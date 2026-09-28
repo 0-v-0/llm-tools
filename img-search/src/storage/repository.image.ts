@@ -1,6 +1,6 @@
-import type { ImageImportRecord, ImageImportInsert, ImportStatus } from './types.js';
+import type { ImageImportRecord, ImageImportInsert, ImportStatus } from './types.ts';
 import type { DB } from '@llm-image/shared';
-import { getDb } from './db.js';
+import { getDb } from './db.ts';
 
 function rowToRecord(row: Record<string, unknown>): ImageImportRecord {
 	return {

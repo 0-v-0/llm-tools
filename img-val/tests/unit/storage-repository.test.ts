@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import type { ValuationInsert } from '../../src/storage/types.js';
-import { setDb, closeDb } from '../../src/storage/db.js';
-import * as searchRepo from '../../src/storage/repository.search.js';
-import * as valuationRepo from '../../src/storage/repository.valuation.js';
+import type { ValuationInsert } from '../../src/storage/types.ts';
+import { setDb, closeDb } from '../../src/storage/db.ts';
+import * as searchRepo from '../../src/storage/repository.search.ts';
+import * as valuationRepo from '../../src/storage/repository.valuation.ts';
 
 const require = createRequire(import.meta.url);
 const { DatabaseSync } = require('node:sqlite');

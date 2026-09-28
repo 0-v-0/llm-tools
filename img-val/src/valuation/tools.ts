@@ -1,9 +1,9 @@
 import type { ToolDef } from '@llm-image/shared';
 import { z } from 'zod';
-import type { SearchParams, ValuationRecord } from '../storage/types.js';
-import { search as searchRepository } from '../storage/repository.search.js';
-import { fileUrlToPath } from '../util/url.js';
-import { extractExif } from './exif.js';
+import type { SearchParams, ValuationRecord } from '../storage/types.ts';
+import { search as searchRepository } from '../storage/repository.search.ts';
+import { fileUrlToPath } from '../util/url.ts';
+import { extractExif } from './exif.ts';
 
 export const SEARCH_VALUATIONS_TOOL: ToolDef = {
 	type: 'function',

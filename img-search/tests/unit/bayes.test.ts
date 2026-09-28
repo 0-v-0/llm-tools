@@ -9,7 +9,7 @@ import {
 	candidateDiversity,
 	temperPosterior,
 	DEFAULT_BINS,
-} from '../../src/search/bayes.js';
+} from '../../src/search/bayes.ts';
 
 describe('cosineSim01', () => {
 	it('returns 1 for identical vectors', () => {

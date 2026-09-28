@@ -10,8 +10,8 @@ import type {
 	LogprobInfo,
 } from '@llm-image/shared';
 import { LLMError } from '@llm-image/shared';
-import { submitToolFor } from '../llm/response-parser.js';
-import { SEARCH_VALUATIONS_TOOL, GET_EXIF_TOOL, executeToolCall } from './tools.js';
+import { submitToolFor } from '../llm/response-parser.ts';
+import { SEARCH_VALUATIONS_TOOL, GET_EXIF_TOOL, executeToolCall } from './tools.ts';
 
 export interface ToolFlowResult {
 	text: string;

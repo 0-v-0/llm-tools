@@ -3,20 +3,20 @@ import { blake3HexFile, toFileUrl, mimeFromUrl, type LinkStatus } from '@llm-ima
 import { Command } from 'commander';
 import { limitAsync } from 'es-toolkit';
 import { stat } from 'node:fs/promises';
-import type { AppConfig } from '../config/config.js';
-import { loadConfig } from '../config/config.js';
-import { loadEnv, type EnvConfig } from '../config/env.js';
-import { bootstrap } from '../config/paths.js';
-import { createEmbeddingProvider } from '../embedding/factory.js';
-import type { EmbeddingProvider } from '../embedding/provider.js';
-import { collectImages, type CollectOptions } from '../image/collect.js';
-import { describeImage } from '../search/describe.js';
-import { getFileIndexRepo } from '../fileindex.js';
-import { closeDb, getDb } from '../storage/db.js';
-import { QdrantStore } from '../storage/qdrant.js';
-import * as imageRepo from '../storage/repository.image.js';
-import { toErrorMessage } from '../util/error-message.js';
-import { sanitizeForTerminal } from '../util/sanitize.js';
+import type { AppConfig } from '../config/config.ts';
+import { loadConfig } from '../config/config.ts';
+import { loadEnv, type EnvConfig } from '../config/env.ts';
+import { bootstrap } from '../config/paths.ts';
+import { createEmbeddingProvider } from '../embedding/factory.ts';
+import type { EmbeddingProvider } from '../embedding/provider.ts';
+import { collectImages, type CollectOptions } from '../image/collect.ts';
+import { describeImage } from '../search/describe.ts';
+import { getFileIndexRepo } from '../fileindex.ts';
+import { closeDb, getDb } from '../storage/db.ts';
+import { QdrantStore } from '../storage/qdrant.ts';
+import * as imageRepo from '../storage/repository.image.ts';
+import { toErrorMessage } from '../util/error-message.ts';
+import { sanitizeForTerminal } from '../util/sanitize.ts';
 
 // @llm-image/file-index 未导出命名状态常量（仅有 LinkStatus 类型 0|1|2|3）；
 // status=3 表示哈希已验证（blake3 与文件内容一致）

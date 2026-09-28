@@ -1,10 +1,10 @@
 import type { LLMProvider } from '@llm-image/shared';
 import { fileUrlToPath, type FileIndexRepo } from '@llm-image/file-index';
-import type { EmbeddingProvider } from '../embedding/provider.js';
-import type { QdrantHit, QdrantStore, RetrievedVectors } from '../storage/qdrant.js';
-import { getFileIndexRepo } from '../fileindex.js';
-import type { ParsedQuestion } from './question-parser.js';
-import type { CandidateInfo, QuestionHistoryEntry } from './question-prompt.js';
+import type { EmbeddingProvider } from '../embedding/provider.ts';
+import type { QdrantHit, QdrantStore, RetrievedVectors } from '../storage/qdrant.ts';
+import { getFileIndexRepo } from '../fileindex.ts';
+import type { ParsedQuestion } from './question-parser.ts';
+import type { CandidateInfo, QuestionHistoryEntry } from './question-prompt.ts';
 import {
 	cosineSim01,
 	scoreCandidate,
@@ -13,10 +13,10 @@ import {
 	expectedInfoGain,
 	candidateDiversity,
 	DEFAULT_BINS,
-} from './bayes.js';
-import { Beam } from './beam.js';
-import { generateQuestions } from './question-flow.js';
-import { SearchSession, type SessionConfig, type SearchResult } from './session.js';
+} from './bayes.ts';
+import { Beam } from './beam.ts';
+import { generateQuestions } from './question-flow.ts';
+import { SearchSession, type SessionConfig, type SearchResult } from './session.ts';
 
 export interface SearchAlgorithmDeps {
 	llm: LLMProvider;

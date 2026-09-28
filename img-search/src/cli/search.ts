@@ -2,17 +2,17 @@ import { AppError, createProvider, resolveProviderConfig } from '@llm-image/shar
 import { Command } from 'commander';
 import { stdin, stdout, stderr } from 'node:process';
 import { createInterface } from 'readline/promises';
-import { loadConfig, type AppConfig } from '../config/config.js';
-import { loadEnv } from '../config/env.js';
-import { bootstrap } from '../config/paths.js';
-import { createEmbeddingProvider } from '../embedding/factory.js';
-import type { SearchOptions } from '../search/algorithm.js';
-import { SearchAlgorithm } from '../search/algorithm.js';
-import type { ParsedQuestion } from '../search/question-parser.js';
-import type { SessionConfig, SearchResult } from '../search/session.js';
-import { closeDb, getDb } from '../storage/db.js';
-import { QdrantStore } from '../storage/qdrant.js';
-import { sanitizeForTerminal } from '../util/sanitize.js';
+import { loadConfig, type AppConfig } from '../config/config.ts';
+import { loadEnv } from '../config/env.ts';
+import { bootstrap } from '../config/paths.ts';
+import { createEmbeddingProvider } from '../embedding/factory.ts';
+import type { SearchOptions } from '../search/algorithm.ts';
+import { SearchAlgorithm } from '../search/algorithm.ts';
+import type { ParsedQuestion } from '../search/question-parser.ts';
+import type { SessionConfig, SearchResult } from '../search/session.ts';
+import { closeDb, getDb } from '../storage/db.ts';
+import { QdrantStore } from '../storage/qdrant.ts';
+import { sanitizeForTerminal } from '../util/sanitize.ts';
 
 interface ParsedAnswer {
 	value: number | 'unknown';

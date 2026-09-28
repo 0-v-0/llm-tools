@@ -1,4 +1,4 @@
-import type { SizeCorrection } from '../standards/parser.js';
+import type { SizeCorrection } from '../standards/parser.ts';
 
 export interface ResolutionResult {
 	multiplier: number;

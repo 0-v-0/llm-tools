@@ -1,8 +1,8 @@
 import { Command } from 'commander';
-import { moveLowCommand } from './move-low.js';
-import { searchCommand } from './search.js';
-import { standardsCommand } from './standards.js';
-import { valueCommand } from './value.js';
+import { moveLowCommand } from './move-low.ts';
+import { searchCommand } from './search.ts';
+import { standardsCommand } from './standards.ts';
+import { valueCommand } from './value.ts';
 
 const program = new Command();
 

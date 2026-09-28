@@ -1,6 +1,6 @@
-import type { ValuationRecord } from '../../storage/types.js';
-import type { ValuationResult } from '../../valuation/engine.js';
-import { decodeUrl } from '../../util/url.js';
+import type { ValuationRecord } from '../../storage/types.ts';
+import type { ValuationResult } from '../../valuation/engine.ts';
+import { decodeUrl } from '../../util/url.ts';
 
 export interface MoveResult {
 	path: string;
