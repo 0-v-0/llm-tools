@@ -1,7 +1,7 @@
-import type { LLMProvider } from './provider.js';
-import { ConfigError } from '../util/errors.js';
-import { AnthropicProvider } from './anthropic.js';
-import { OpenAIProvider } from './openai.js';
+import type { LLMProvider } from './provider.ts';
+import { ConfigError } from '../util/errors.ts';
+import { AnthropicProvider } from './anthropic.ts';
+import { OpenAIProvider } from './openai.ts';
 
 /**
  * Provider configuration interface.

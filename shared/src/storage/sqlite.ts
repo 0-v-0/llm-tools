@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { StorageError } from '../util/errors.js';
+import { StorageError } from '../util/errors.ts';
 
 // Use createRequire to load node:sqlite — bypasses Vite's ESM resolution issues
 // with experimental Node.js built-in modules

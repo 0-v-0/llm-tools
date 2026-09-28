@@ -8,8 +8,8 @@ import type {
 	StopReason,
 	ToolDef,
 	LogprobInfo,
-} from './provider.js';
-import { LLMError } from '../util/errors.js';
+} from './provider.ts';
+import { LLMError } from '../util/errors.ts';
 
 interface AnthropicProviderConfig {
 	apiKey: string;

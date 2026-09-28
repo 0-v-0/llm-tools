@@ -9,17 +9,19 @@ export type ExitCode =
 export class AppError extends Error {
 	readonly code: string;
 	readonly exitCode: ExitCode;
+	readonly cause?: unknown;
 
 	constructor(
 		code: string,
 		message: string,
 		exitCode: ExitCode = 1,
-		public readonly cause?: unknown,
+		cause?: unknown,
 	) {
 		super(message);
 		this.name = this.constructor.name;
 		this.code = code;
 		this.exitCode = exitCode;
+		this.cause = cause;
 	}
 }
 

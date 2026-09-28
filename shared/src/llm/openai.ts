@@ -7,8 +7,8 @@ import type {
 	ContentBlock,
 	StopReason,
 	LogprobInfo,
-} from './provider.js';
-import { LLMError } from '../util/errors.js';
+} from './provider.ts';
+import { LLMError } from '../util/errors.ts';
 
 interface OpenAIProviderConfig {
 	apiBase: string;

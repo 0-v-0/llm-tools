@@ -1,9 +1,9 @@
 import { readFile, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import type { ImageFormat } from './types.js';
-import { ImageError } from '../util/errors.js';
-import { hashBuffer } from './hash.js';
+import type { ImageFormat } from './types.ts';
+import { ImageError } from '../util/errors.ts';
+import { hashBuffer } from './hash.ts';
 
 type SharpMetadata = Awaited<ReturnType<ReturnType<typeof sharp>['metadata']>>;
 type SharpOptions = NonNullable<Parameters<typeof sharp>[1]>;

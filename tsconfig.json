@@ -11,6 +11,8 @@
 		"resolveJsonModule": true,
 		"declaration": false,
 		"sourceMap": true,
-		"types": ["node"]
+		"types": ["node"],
+		"allowImportingTsExtensions": true,
+		"rewriteRelativeImportExtensions": true
 	}
 }
