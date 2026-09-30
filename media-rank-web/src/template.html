@@ -1,0 +1,92 @@
+<!-- <media-rank> 自带模板：由 element.ts 以 ?raw 注入后在 mount 时编译。
+	遵守 cydon 约束：条件显示统一用 c-show；列表已在状态层拍平为 pairCards /
+	rankingRows；模板引用的方法已在 connectedCallback 预绑定到元素，且只依赖
+	入参（组件状态必须由表达式直接读取才能建立依赖追踪）；事件处理器不依赖
+	this。所有表达式空值安全。 -->
+
+<!-- ============ 进行中：当前轮对局 ============ -->
+<div c-show="started && !completed && pairCards.length > 0">
+	<div class="flex flex-wrap items-center gap-3 text-sm">
+		<span c-show="mode=='topK'" class="badge badge-warning badge-outline">前 $target 名提取 · 已比较 $round 次</span>
+		<span c-show="mode=='precise'" class="badge badge-warning badge-outline">精确排序 · 已比较 $round 次</span>
+		<span c-show="mode=='topK'">已提取 $extractedCount / $target 名 · 剩余候选 $candidatesLeft</span>
+		<span c-show="mode=='precise'">共 $totalCount 项 · 预计约 $estimateTotal 次比较</span>
+	</div>
+	<div class="alert alert-info py-2 text-sm mt-2">
+		<span>判断这一对哪项更好，点击即裁决并自动进入下一对。</span>
+	</div>
+	<!-- 固定两列：pairCards 按对局拍平（a、b 相邻），同一对局的两张卡恒在同一行。
+		对局连播直接顺序播放两张卡各自的行内播放器（autoplayTick 驱动，
+		A 播完经 ended 接续 B）；data-role 供连播定位卡片。 -->
+	<div class="grid gap-4 sm:grid-cols-2 mt-3" data-role="pair-list">
+		<template c-for="pc; pairCards">
+			<div class="card bg-base-200 p-2 transition-all" data-pair="$pc.pairIndex">
+				<div class="flex items-center justify-between mb-1">
+					<span class="badge badge-ghost badge-sm">对局 ${pc.pairIndex + 1}</span>
+					<button class="btn btn-ghost btn-xs" @click="openViewer(pc)">原始文件</button>
+				</div>
+				<figure c-show="pc.kind=='image'">
+					<img class="w-full object-contain max-h-64 bg-base-300 cursor-pointer select-none" src="${cardSrc(pc)}" alt="$pc.name" loading="lazy" @click="onCardClick(pc)" @mouseover="previewOn(pc)" @mouseout="previewOff">
+				</figure>
+				<figure c-show="pc.kind=='audio'" class="py-6 px-2">
+					<audio class="w-full" controls preload="metadata" .src="rawSrc(pc.id)"></audio>
+				</figure>
+				<figure c-show="pc.kind=='video'">
+					<video class="w-full max-h-64 bg-base-300" controls preload="metadata" .src="rawSrc(pc.id)" poster="${posterSrc(pc.id)}"></video>
+				</figure>
+				<div class="flex items-center gap-2 p-1 text-xs">
+					<span class="truncate font-mono grow" title="$pc.name">$pc.name</span>
+					<span c-show="!!pc.meta" class="badge badge-ghost badge-sm shrink-0">$pc.meta</span>
+				</div>
+				<div class="px-1 pb-1">
+					<button class="btn btn-primary btn-xs w-full" @click="onCardClick(pc)">✓ 更好</button>
+				</div>
+			</div>
+		</template>
+	</div>
+</div>
+
+<!-- ============ 空候选 ============ -->
+<div c-show="started && items.length == 0" class="alert alert-warning py-2 text-sm mt-2">
+	<span>没有候选，无法排名</span>
+</div>
+
+<!-- ============ 完成：完整排名 ============ -->
+<div c-show="completed">
+	<div class="alert alert-success py-2 text-sm">
+		<span c-show="mode=='precise'">排名完成：共 $totalCount 项，精确全排序</span>
+			<span c-show="mode=='topK'">排名完成：共 $totalCount 项，前 $target 名经认证</span>
+	</div>
+	<ol class="mt-3 space-y-1">
+		<template c-for="r; rankingRows">
+			<li class="flex items-center gap-2 p-2 rounded-lg bg-base-200">
+				<span class="badge ${r.badge} shrink-0">${r.rank}</span>
+				<img c-show="r.kind=='image'" class="w-10 h-10 object-cover rounded shrink-0" src="${thumbSrc(r.id)}" alt="$r.name" loading="lazy">
+				<span class="text-sm font-mono truncate grow" title="$r.name">$r.name</span>
+				<span c-show="!!r.meta" class="badge badge-ghost badge-sm shrink-0">$r.meta</span>
+				<button class="btn btn-ghost btn-xs shrink-0" @click="openViewer(r)">原始文件</button>
+			</li>
+		</template>
+	</ol>
+	<div class="flex gap-2 mt-4">
+		<button class="btn btn-outline btn-sm" @click="restart">重新排名</button>
+	</div>
+</div>
+
+<!-- ============ 悬停大图预览（非阻塞，位于原始文件查看层之下） ============ -->
+<div c-show="!!previewUrl" class="fixed inset-0 z-40 flex items-center justify-center p-8 pointer-events-none">
+	<img class="max-w-[800px] max-h-full object-contain rounded-lg shadow-2xl bg-base-300" src="$previewUrl" alt="$previewName">
+</div>
+
+<!-- ============ 原始文件查看 ============ -->
+<div c-show="!!viewerId" class="fixed inset-0 z-50 bg-black/90 flex flex-col">
+	<div class="flex items-center justify-between gap-3 p-3">
+		<span class="font-mono text-sm text-white truncate">$viewerName</span>
+		<button class="btn btn-sm btn-ghost text-white shrink-0" @click="closeViewer">✕ 关闭</button>
+	</div>
+	<div class="grow min-h-0 flex items-center justify-center p-4" ref="viewerBox">
+		<img c-show="viewerKind=='image'" class="max-w-full max-h-full object-contain" src="${viewerId ? rawSrc(viewerId) : ''}" alt="$viewerName">
+		<audio c-show="viewerKind=='audio'" class="w-full max-w-xl" controls .src="viewerId ? rawSrc(viewerId) : ''"></audio>
+		<video c-show="viewerKind=='video'" class="max-w-full max-h-full" controls .src="viewerId ? rawSrc(viewerId) : ''" poster="${viewerId ? posterSrc(viewerId) : ''}"></video>
+	</div>
+</div>

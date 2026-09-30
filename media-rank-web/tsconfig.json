@@ -1,0 +1,13 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"lib": ["ES2023", "DOM", "DOM.Iterable"],
+		"noEmit": true,
+		"experimentalDecorators": true,
+		"useDefineForClassFields": true,
+		"types": ["vite/client", "node"]
+	},
+	"include": ["src/**/*", "tests/**/*"]
+}

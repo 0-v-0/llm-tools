@@ -6,6 +6,7 @@ packages:
   - "img-val"
   - "img-cleanup"
   - "img-cleanup-web"
+  - "media-rank-web"
   - "tag-translator"
 
 allowBuilds:
