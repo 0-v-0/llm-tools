@@ -1,0 +1,31 @@
+{
+	"name": "playlist-rank-web",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "Playlist tournament ranker — paste songs (one per line), point at a song-resolution API (GET template returning the audio stream), rank by pairwise comparison with <media-rank>, export as text or .m3u8",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"typecheck": "tsc --noEmit",
+		"lint": "pnpx oxlint --max-warnings=100"
+	},
+	"dependencies": {
+		"media-rank-web": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/node": "^26.4.0",
+		"@unocss/transformer-directives": "^66.10.5",
+		"daisyui": "^5.6.16",
+		"typescript": "^7.0.2",
+		"unocss": "^66.10.5",
+		"unocss-preset-daisyui-next": "^0.1.2",
+		"vite": "^8.3.1",
+		"vitest": "^4.1.11"
+	},
+	"engines": {
+		"node": ">=22.0.0"
+	}
+}

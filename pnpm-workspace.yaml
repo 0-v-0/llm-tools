@@ -7,6 +7,7 @@ packages:
   - "img-cleanup"
   - "img-cleanup-web"
   - "media-rank-web"
+  - "playlist-rank-web"
   - "tag-translator"
 
 allowBuilds:

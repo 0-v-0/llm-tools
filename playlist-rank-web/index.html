@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>歌单排序器 · playlist-rank-web</title>
+</head>
+
+<body>
+	<!-- 纯前端：解析 API 为 GET 模板、直接返回音频流，模板 URL 即直链，
+		无需请求解析；页面外壳用原生 DOM，锦标赛复用 <media-rank>。 -->
+	<div class="block max-w-6xl mx-auto p-4">
+		<h1 class="text-xl font-bold">歌单排序器 <span class="text-sm font-normal opacity-50">playlist-rank-web</span></h1>
+
+		<!-- ============ 配置区 ============ -->
+		<div class="card bg-base-200 shadow-sm mt-4">
+			<div class="card-body gap-3">
+				<div class="w-full flex flex-col items-start gap-1">
+					<div class="flex items-center justify-between w-full gap-2">
+						<span class="shrink-0">歌单（每行一首「歌名 - 歌手」，歌手可省略；「有序」歌单的相对顺序会保留在最终排名中）</span>
+						<div class="flex gap-1">
+							<button id="extract" class="btn btn-ghost btn-xs" type="button" title="从图片提取歌单（多模态 LLM），结果追加到最后一个歌单">从图片提取</button>
+							<button id="example" class="btn btn-ghost btn-xs" type="button">载入示例</button>
+						</div>
+					</div>
+					<div id="playlists" class="w-full flex flex-col gap-2"></div>
+					<div class="flex items-center">
+						<button id="add-playlist" class="btn btn-ghost btn-xs" type="button">+ 添加歌单</button>
+						<input id="img-file" type="file" accept="image/*" style="display:none">
+					</div>
+				</div>
+
+				<!-- 图片提取：多模态 LLM API（OpenAI 兼容），Key 仅存本机 localStorage -->
+				<details class="w-full">
+					<summary class="text-sm cursor-pointer opacity-70 select-none">图片提取设置（多模态 LLM API，OpenAI 兼容）</summary>
+					<div class="grid gap-x-4 gap-y-2 mt-2 sm:grid-cols-3 w-full">
+						<label class="label flex-col items-start gap-1">
+							<span class="text-xs opacity-70">API 地址</span>
+							<input id="llm-base" class="input input-bordered input-sm font-mono w-full" placeholder="https://api.openai.com/v1">
+						</label>
+						<label class="label flex-col items-start gap-1">
+							<span class="text-xs opacity-70">API Key（仅存本机）</span>
+							<input id="llm-key" type="password" class="input input-bordered input-sm font-mono w-full" placeholder="sk-…">
+						</label>
+						<label class="label flex-col items-start gap-1">
+							<span class="text-xs opacity-70">多模态模型</span>
+							<input id="llm-model" class="input input-bordered input-sm font-mono w-full" placeholder="gpt-4o-mini">
+						</label>
+					</div>
+				</details>
+				<label class="label flex-col items-start gap-1 w-full max-w-3xl">
+					<span>歌曲解析 API（GET 模板，直接返回音频流；<code>{name}</code> 歌名、<code>{artist}</code> 歌手，均 URL 编码后替换）</span>
+					<input id="tpl" class="input input-bordered font-mono text-sm w-full"
+						placeholder="http://127.0.0.1:5178/audio?name={name}&artist={artist}">
+				</label>
+				<div class="flex flex-wrap items-center gap-3">
+					<button id="start" class="btn btn-primary" disabled>开始排名</button>
+					<label class="flex items-center gap-1 text-sm">找出前
+						<input id="k" type="number" min="1" class="input input-bordered input-sm w-20" placeholder="全部">
+						<span>名（留空 = 全部精确排序）</span>
+					</label>
+					<span id="status" class="text-sm opacity-60">填写歌单与解析 API 后开始</span>
+				</div>
+				<!-- 中断恢复：与当前歌单匹配的未完成/已完成进度快照 -->
+				<div id="resume" class="flex items-center gap-2 alert alert-info py-2 text-sm" style="display:none">
+					<span class="grow">检测到这份歌单上次的排名进度，可从中断处继续。</span>
+					<button id="resume-btn" class="btn btn-primary btn-sm shrink-0">恢复进度</button>
+					<button id="discard-btn" class="btn btn-ghost btn-sm shrink-0">丢弃</button>
+				</div>
+				<div id="error" class="alert alert-error py-2 text-sm" style="display:none"><span></span></div>
+				<div id="warn" class="alert alert-warning py-2 text-sm" style="display:none"><span></span></div>
+			</div>
+		</div>
+
+		<!-- ============ 导出（排名完成后显示） ============ -->
+		<div id="actions" class="flex flex-wrap gap-2 mt-4" style="display:none">
+			<button id="copy" class="btn btn-outline btn-sm">复制排名（每行一个歌名）</button>
+			<button id="download" class="btn btn-outline btn-sm">下载 .m3u8（含解析直链）</button>
+		</div>
+
+		<!-- ============ 锦标赛（media-rank） ============ -->
+		<div id="mount" class="mt-4"></div>
+	</div>
+
+	<script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
