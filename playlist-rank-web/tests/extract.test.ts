@@ -27,3 +27,34 @@ describe('parseSongLines', () => {
 		expect(parseSongLines('```\n```')).toEqual([])
 	})
 })
+
+describe('parseSongLines 省略号（UI 截断）', () => {
+	it('剥除行尾省略号，只保留可见文字', () => {
+		expect(parseSongLines('寻…\n寻… ')).toEqual(['寻', '寻'])
+		expect(parseSongLines('A Very Long Title…')).toEqual(['A Very Long Title'])
+	})
+
+	it('剥除三个点形式的省略号', () => {
+		expect(parseSongLines('Yesterday...\nHello...')).toEqual(['Yesterday', 'Hello'])
+	})
+
+	it('剥除行中间的省略号，保留两侧可见片段', () => {
+		expect(parseSongLines('寻…记得')).toEqual(['寻记得'])
+	})
+
+	it('省略号 + 歌手被截断：剥除后不留残缺分隔符', () => {
+		// 「歌名 - 歌手…」中歌手被截断 → 「歌名 - 歌手」，分隔符合法保留
+		expect(parseSongLines('青花瓷 - 周杰…')).toEqual(['青花瓷 - 周杰'])
+		// 歌手整体被截掉 → 只剩「歌名 - 」的残缺尾巴，一并剥除
+		expect(parseSongLines('青花瓷 - …')).toEqual(['青花瓷'])
+		expect(parseSongLines('青花瓷 -…')).toEqual(['青花瓷'])
+	})
+
+	it('剥除后为空的行被过滤', () => {
+		expect(parseSongLines('…\n...\n晴天')).toEqual(['晴天'])
+	})
+
+	it('正常歌名里的单点、双点保留（不误伤：只认 … 与三个点）', () => {
+		expect(parseSongLines('Mr. Blue Sky\nI.E.D.\nHey Jude..')).toEqual(['Mr. Blue Sky', 'I.E.D.', 'Hey Jude..'])
+	})
+})
