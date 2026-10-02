@@ -1,4 +1,5 @@
 import type { MediaItem } from './types.ts'
+import { firstVerdictIndex, truncateFor } from './verdict-log.ts'
 
 /** 精确模式（Ford-Johnson 合并插入排序）快照：保存候选与裁决记录，
 	恢复 = 按序重放（比较序列确定于先前的裁决）。 */
@@ -162,6 +163,44 @@ export class MergeInsertionRunner {
 
 	get comparisonsMade(): number {
 		return this.answers.length
+	}
+
+	/**
+	 * 前 `count` 次比较（引擎按 answers 重放得出），至多到已答次数为止。
+	 *
+	 * 供裁决日志截断定位「某曲目首次出场的下标」——比较序列是重放出来的，
+	 * 宿主拿不到引擎内部状态，只能通过重放到一半收集。count 超过已答次数时
+	 * 不会向未裁决处推进：那里的比较还没有答案，收集它对截断无意义。
+	 */
+	comparisonsUpTo(count: number): [MediaItem, MediaItem][] {
+		const gen = fjSort(this.items, this.observer)
+		const out: [MediaItem, MediaItem][] = []
+		const upto = Math.min(count, this.answers.length)
+		let step = gen.next()
+		let i = 0
+		while (!step.done && i < upto) {
+			const [x, y] = step.value
+			const ans = this.answers[i]!
+			if (ans != x.id && ans != y.id)
+				throw new Error('无效的精确模式快照：裁决与比较不符')
+			out.push([...step.value])
+			step = gen.next(ans)
+			i++
+		}
+		return out
+	}
+
+	/**
+	 * 丢弃某曲目的裁决：回退到它首次参与比较之前。
+	 *
+	 * answers 是位置日志，重放逐位置喂回，抽掉中间几条会让后续记录与比较
+	 * 错位——只能整段截断（见 verdict-log.ts）。
+	 */
+	discardVerdictsOf(id: string): number {
+		const first = firstVerdictIndex(this.comparisonsUpTo(this.answers.length), this.answers.length)
+		const keep = truncateFor(first, id, this.answers.length)
+		this.answers.length = keep
+		return keep
 	}
 
 	/** 候选总数 */

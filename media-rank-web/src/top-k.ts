@@ -1,4 +1,5 @@
 import type { MediaItem } from './types.ts'
+import { firstVerdictIndex, truncateFor } from './verdict-log.ts'
 
 /** 前 k 名提取（Ford-Johnson 同族的锦标赛选择）快照：重放裁决记录即可恢复
 	（knockout 配对使用以候选 id 派生种子的确定性洗牌，重放可复现同一签表）。 */
@@ -150,6 +151,44 @@ export class TopKRunner {
 
 	get comparisonsMade(): number {
 		return this.answers.length
+	}
+
+	/**
+	 * 前 `count` 次比较（引擎按 answers 重放得出），至多到已答次数为止。
+	 *
+	 * 与 MergeInsertionRunner.comparisonsUpTo 同构：比较序列是重放出来的，
+	 * 截断点只能这样定位。
+	 */
+	comparisonsUpTo(count: number): [MediaItem, MediaItem][] {
+		const gen = topKSort(this.items, this.target, { extracted: 0 })
+		const out: [MediaItem, MediaItem][] = []
+		const upto = Math.min(count, this.answers.length)
+		let step = gen.next()
+		let i = 0
+		while (!step.done && i < upto) {
+			const [x, y] = step.value
+			const ans = this.answers[i]!
+			if (ans != x.id && ans != y.id)
+				throw new Error('无效的前 k 名快照：裁决与比较不符')
+			out.push([...step.value])
+			step = gen.next(ans)
+			i++
+		}
+		return out
+	}
+
+	/**
+	 * 丢弃某曲目的裁决：回退到它首次参与比较之前。
+	 *
+	 * answers 是位置日志，重放逐位置喂回，抽掉中间几条会让后续记录与比较
+	 * 错位——只能整段截断（见 verdict-log.ts）。topK 的一次丢弃通常连带回退
+	 * 整支淘汰赛分支（该曲目的胜者树子树都建在这次裁决之上）。
+	 */
+	discardVerdictsOf(id: string): number {
+		const first = firstVerdictIndex(this.comparisonsUpTo(this.answers.length), this.answers.length)
+		const keep = truncateFor(first, id, this.answers.length)
+		this.answers.length = keep
+		return keep
 	}
 
 	/** 已提取名次数（进行中亦可查询） */
