@@ -14,6 +14,15 @@ export interface PreciseSnapshot {
 type Cmp = [MediaItem, MediaItem]
 
 /**
+ * 链演化观察器（仅供测试断言内部结构；不传则零开销、不影响行为）。
+ * 每次链发生变化后收到快照：主链升序（最差在前）、本步插入的锚点，
+ * 以及 depth —— fjSort 的递归层号（0 = 最外层），供测试按层断言。
+ */
+export interface ChainObserver {
+	(chain: readonly MediaItem[], step: { anchor: string; index: number; depth: number }): void
+}
+
+/**
  * Ford-Johnson（合并插入排序）的比较序列生成器。
  *
  * 结构：候选两两配对比较 → 胜者递归排序成主链（升序：最差在前）→ 败者按
@@ -22,9 +31,13 @@ type Cmp = [MediaItem, MediaItem]
  * 插入的二分范围 ≤ 2^k − 1，从而达到 FJ 的比较次数上界）；奇数尾项最后
  * 无界二分插入。输出最优在前的前序（内部升序链反转）。
  *
+ * 不变量（见 tests/merge-insertion.test.ts 的链演化断言）：主链始终是全序，
+ * 且每步只把一个 loser 插入既有链的某一处，其余元素相对次序不变——增量维护
+ * 而非按偏序全局重排。
+ *
  * yield 一对候选（请求裁决：哪个更好），receive 更好一项；返回完整排名。
  */
-function* fjSort(items: readonly MediaItem[]): Generator<Cmp, MediaItem[], string> {
+function* fjSort(items: readonly MediaItem[], obs?: ChainObserver, depth = 0): Generator<Cmp, MediaItem[], string> {
 	// 约定：返回升序链（最差在前）——败者插入的前缀边界依赖此方向；
 	// 最优在前由调用方（MergeInsertionRunner）反转得到。
 	if (items.length < 2)
@@ -40,13 +53,15 @@ function* fjSort(items: readonly MediaItem[]): Generator<Cmp, MediaItem[], strin
 	}
 	const straggler = items.length % 2 == 1 ? items[items.length - 1]! : null
 	// 递归排序胜者 → 升序主链（最差在前）
-	const chain: MediaItem[] = yield* fjSort(winners)
+	const chain: MediaItem[] = yield* fjSort(winners, obs, depth + 1)
 	const base = [...chain]
 	// a_1：最差胜者的败者，位置强制（插到链首），0 次比较
 	const w0 = base[0]!
 	const l0 = loserOf.get(w0.id)
-	if (l0)
+	if (l0) {
 		chain.unshift(l0)
+		obs?.(chain, { anchor: w0.id, index: 0, depth })
+	}
 	// 其余败者按 Jacobsthal 组插入：[2,1], [4,3], [10..5], [20..11]…
 	{
 		const k = base.length
@@ -71,6 +86,7 @@ function* fjSort(items: readonly MediaItem[]): Generator<Cmp, MediaItem[], strin
 						hi = mid
 				}
 				chain.splice(lo, 0, loser)
+				obs?.(chain, { anchor: winner.id, index: lo, depth })
 			}
 			prev = a
 			;[a, b] = [b, b + 2 * a]
@@ -90,6 +106,7 @@ function* fjSort(items: readonly MediaItem[]): Generator<Cmp, MediaItem[], strin
 				hi = mid
 		}
 		chain.splice(lo, 0, straggler)
+		obs?.(chain, { anchor: '', index: lo, depth })
 	}
 	return chain
 }
@@ -103,13 +120,20 @@ function* fjSort(items: readonly MediaItem[]): Generator<Cmp, MediaItem[], strin
  * 纯逻辑、无副作用。
  */
 export class MergeInsertionRunner {
+	/**
+	 * 链演化观察器（可选，仅测试用）。replay() 每次从头重放生成器，观察器会
+	 * 收到**每一步之后**的链快照——包括已答裁决产生的历史步骤。因此它适合
+	 * 单次驱动中收集完整轨迹，不要在多次重放间累积。
+	 */
+	observer?: ChainObserver
+
 	constructor(
 		private readonly items: readonly MediaItem[],
 		private readonly answers: string[] = [],
 	) {}
 
 	private replay(): { cmp: Cmp | null; ranking: MediaItem[] | null } {
-		const gen = fjSort(this.items)
+		const gen = fjSort(this.items, this.observer)
 		let step = gen.next()
 		let i = 0
 		while (!step.done && i < this.answers.length) {
