@@ -42,6 +42,29 @@ export function formatSongLine(song: SongRef): string {
 	return song.artist ? `${song.name} - ${song.artist}` : song.name
 }
 
+/**
+ * 交换一行里「 - 」前后的内容：「歌手 - 歌名」→「歌名 - 歌手」。
+ *
+ * 识别与拆分共用 ARTIST_SEP，因此与 splitSongLine 的口径一致：取最靠前的
+ * 分隔符，且两侧都非空才算可交换。**不含分隔符的行原样返回**——那种行只有
+ * 歌名，没有可交换的另一侧，强行处理会凭空造出「歌名 - 」这种半截输入。
+ */
+export function swapSongLine(line: string): string {
+	const name = line.trim()
+	if (!name)
+		return line
+	const song = splitSongLine(name)
+	// 无分隔符，或分隔后有一侧为空（只有歌名）→ 不动
+	if (!song?.artist || !song.name)
+		return line
+	return `${song.artist} - ${song.name}`
+}
+
+/** 逐行交换「 - 」前后内容；空行与无分隔符的行保持原样。 */
+export function swapSongLines(text: string): string {
+	return text.split(/\r?\n/).map(swapSongLine).join('\n')
+}
+
 /** 解析歌单文本：每行一个歌曲，trim、滤空行、拆分歌手、去重（保留首次出现）。 */
 export function parsePlaylist(text: string): ParsedPlaylist {
 	const seen = new Set<string>()

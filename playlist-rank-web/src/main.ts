@@ -3,7 +3,7 @@ import 'media-rank-web'
 import type { MediaRank, RankMode, RankSnapshot } from 'media-rank-web'
 import type { MediaSource, MediaSourceParams, OrderConstraint, RankResult } from 'media-rank-web'
 import { applyOrderConstraints } from 'media-rank-web'
-import { buildM3u, buildOrderConstraints, crossPlaylistDuplicates, expandTemplate, formatSongLine, parsePlaylist, splitSongLine } from './lib.ts'
+import { buildM3u, buildOrderConstraints, crossPlaylistDuplicates, expandTemplate, formatSongLine, parsePlaylist, splitSongLine, swapSongLines } from './lib.ts'
 import type { PlaylistInput, SongRef } from './lib.ts'
 import { extractSongs, imageToDataUrl } from './extract.ts'
 
@@ -109,6 +109,16 @@ function addPlaylistEntry(prefill?: PlaylistEntryInput) {
 		// 歌单被改动后，旧快照可能与新歌单不再匹配
 		syncResumeBar()
 		dropExampleUndo()
+	})
+	;(root.querySelector('[data-role=swap]') as HTMLButtonElement).addEventListener('click', () => {
+		const area = root.querySelector('[data-role=text]') as HTMLTextAreaElement
+		const before = area.value
+		const after = swapSongLines(before)
+		if (after === before)
+			return
+		area.value = after
+		// 手工改写等价于一次输入：同步启停按钮与恢复入口，并让示例撤销点失效
+		area.dispatchEvent(new Event('input', { bubbles: true }))
 	})
 	;(root.querySelector('[data-role=remove]') as HTMLButtonElement).addEventListener('click', () => {
 		root.remove()

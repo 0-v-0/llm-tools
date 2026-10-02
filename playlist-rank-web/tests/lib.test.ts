@@ -7,6 +7,8 @@ import {
 	formatSongLine,
 	parsePlaylist,
 	splitSongLine,
+	swapSongLine,
+	swapSongLines,
 } from '../src/lib.ts'
 import type { PlaylistInput } from '../src/lib.ts'
 
@@ -187,5 +189,49 @@ describe('buildM3u', () => {
 	it('直链同时填充 {name} 与 {artist}', () => {
 		const m3u = buildM3u('http://x?n={name}&a={artist}', [{ name: '晴天', artist: '周杰伦' }])
 		expect(m3u).toContain('http://x?n=' + encodeURIComponent('晴天') + '&a=' + encodeURIComponent('周杰伦'))
+	})
+})
+describe('swapSongLine', () => {
+	it('交换「歌名 - 歌手」为「歌手 - 歌名」', () => {
+		expect(swapSongLine('晴天 - 周杰伦')).toBe('周杰伦 - 晴天')
+	})
+
+	it('取最靠前的分隔符（歌名优先非空），与其余解析口径一致', () => {
+		// 解析为 name='A'、artist='B - C'，故交换后为 'B - C - A'
+		expect(swapSongLine('A - B - C')).toBe('B - C - A')
+	})
+
+	it('不含分隔符的行原样返回', () => {
+		expect(swapSongLine('夜曲')).toBe('夜曲')
+		expect(swapSongLine('I.E.D.')).toBe('I.E.D.')
+	})
+
+	it('只有歌手没有歌名的行视为无效，不动', () => {
+		expect(swapSongLine('- 周杰伦')).toBe('- 周杰伦')
+	})
+
+	it('中文间隔号与破折号同样识别', () => {
+		expect(swapSongLine('晴天 – 周杰伦')).toBe('周杰伦 - 晴天')
+		expect(swapSongLine('晴天 — 周杰伦')).toBe('周杰伦 - 晴天')
+	})
+
+	it('两次交换回到原样', () => {
+		const line = '晴天 - 周杰伦'
+		expect(swapSongLine(swapSongLine(line))).toBe(line)
+	})
+})
+
+describe('swapSongLines', () => {
+	it('逐行交换，空行与无分隔符的行保持原样', () => {
+		const text = '晴天 - 周杰伦\n夜曲\n\n青花瓷 - 周杰伦'
+		expect(swapSongLines(text)).toBe('周杰伦 - 晴天\n夜曲\n\n周杰伦 - 青花瓷')
+	})
+
+	it('整体为空时返回空串', () => {
+		expect(swapSongLines('')).toBe('')
+	})
+
+	it('只含无分隔符的行时内容不变', () => {
+		expect(swapSongLines('夜曲\n孤勇者')).toBe('夜曲\n孤勇者')
 	})
 })
