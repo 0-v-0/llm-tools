@@ -37,15 +37,18 @@
 					<div class="grid gap-x-4 gap-y-2 mt-2 sm:grid-cols-3 w-full">
 						<label class="label flex-col items-start gap-1">
 							<span class="text-xs opacity-70">API 地址</span>
-							<input id="llm-base" class="input input-bordered input-sm font-mono w-full" placeholder="https://api.openai.com/v1">
+							<input id="llm-base" class="input input-bordered input-sm font-mono w-full"
+								placeholder="https://api.openai.com/v1"
+								pattern="[^\s\x2f](?:.*[^\s\x2f])?"
+								title="API 地址不能以 / 结尾（如 https://api.openai.com/v1）">
 						</label>
 						<label class="label flex-col items-start gap-1">
-							<span class="text-xs opacity-70">API Key（仅存本机）</span>
+							<span class="text-xs opacity-70">API Key（仅存本浏览器）</span>
 							<input id="llm-key" type="password" class="input input-bordered input-sm font-mono w-full" placeholder="sk-…">
 						</label>
 						<label class="label flex-col items-start gap-1">
 							<span class="text-xs opacity-70">多模态模型</span>
-							<input id="llm-model" class="input input-bordered input-sm font-mono w-full" placeholder="gpt-4o-mini">
+							<input id="llm-model" class="input input-bordered input-sm font-mono w-full" placeholder="gpt-6-luna">
 						</label>
 					</div>
 				</details>

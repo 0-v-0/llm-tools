@@ -71,9 +71,9 @@ media-rank-web 的 ADR）。
 截图），多模态 LLM 提取歌曲后**追加**到输入框，人工修正后再开始排名。
 
 - 需要在「图片提取设置」中填写 **OpenAI 兼容**的多模态 LLM API：API 地址
-  （如 `https://api.openai.com/v1`，自动补全 `/chat/completions`）、API Key、
-  模型名（如 `gpt-4o-mini`）；线协议与 `@llm-image/shared` 的 OpenAI
-  provider 一致（text + image_url 块）。
+  （如 `https://api.openai.com/v1`，自动补全 `/chat/completions`；**不能以 `/`
+  结尾**，输入框用 `pattern` 约束）、API Key、模型名；
+  线协议与 `@llm-image/shared` 的 OpenAI provider 一致（text + image_url 块）。
 - 提示词要求模型**每行输出一首 `歌名 - 歌手`**：能确认歌手时必须写出，确实
   无法确认时才只输出歌名（不得编造、不得留空 ` - `）。同时要求忽略界面 UI 文本
   （应用名、按钮、时长、播放量、进度条、水印等），只输出歌曲。客户端再做一层
@@ -111,7 +111,7 @@ media-rank-web 的 ADR）。
   丢弃其裁决并回退重做——且**前 k 名模式下签表由 id 派生，改任一 id 会使全部
   裁决失效、从头开始**（见 media-rank-web 的 ADR 3e）。改 id 后，有序歌单的
   顺序约束按 id 匹配，该曲的约束关系将不再命中，需重新开始排名并复查歌单。
-只改名称/元数据则不影响裁决，但**直链会跟着显示名走**：本包按名字展开 URL
+  只改名称/元数据则不影响裁决，但**直链会跟着显示名走**：本包按名字展开 URL
   模板，所以在排名中把「晴天 - 周杰伦」改成「稻香 - 周杰伦」，播放的就是稻香。
 
 开发：`pnpm test`（歌单解析/模板展开/m3u8 生成单测）、`pnpm typecheck`、

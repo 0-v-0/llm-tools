@@ -97,6 +97,8 @@ function addPlaylistEntry(prefill?: PlaylistEntryInput) {
 				<input type="checkbox" class="toggle toggle-xs" data-role="ordered">
 				<span>有序</span>
 			</label>
+			<button class="btn btn-ghost btn-xs self-start" data-role="swap" type="button"
+				title="交换每行「 - 」前后的歌名与歌手（不含「 - 」的行不变）">⇄</button>
 		</div>
 		<textarea class="textarea textarea-bordered font-mono text-sm grow h-28" data-role="text"
 			placeholder="每行一首「歌名 - 歌手」&#10;…或用「从图片提取」/ Ctrl+V 粘贴截图"></textarea>

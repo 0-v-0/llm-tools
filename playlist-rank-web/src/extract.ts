@@ -16,7 +16,7 @@ export interface LlmConfig {
 	/** API 地址（OpenAI 兼容，如 https://api.openai.com/v1） */
 	base: string
 	key: string
-	/** 多模态模型名（如 gpt-4o-mini） */
+	/** 多模态模型名 */
 	model: string
 }
 
