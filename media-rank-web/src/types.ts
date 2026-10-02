@@ -16,6 +16,14 @@ export interface MediaSourceParams {
 	zoom?: number
 	/** 原始文件流（不做缩放/转码） */
 	raw?: boolean
+	/**
+	 * 该项当前的**显示名**（`MediaItem.name`；缺省时为 id 的 basename）。
+	 *
+	 * id 才是稳定的标识，但有些源的直链是**按名字**解析的（如 playlist-rank-web
+	 * 用「歌名 - 歌手」展开 URL 模板）。传入 name 让这类源跟随改名，不提供的源
+	 * 忽略它、行为与从前一致。
+	 */
+	name?: string
 }
 
 /**

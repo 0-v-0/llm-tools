@@ -15,8 +15,12 @@
 			<h1 class="text-xl font-bold">媒体锦标赛排名 <span class="text-sm font-normal opacity-50">media-rank-web demo</span></h1>
 			<div class="flex items-center gap-2 text-sm">
 				<label class="flex items-center gap-1">找出前
-					<input id="target" type="number" min="1" max="8" value="2" class="input input-bordered input-sm w-20">
+					<input id="target" type="number" min="1" max="12" value="2" class="input input-bordered input-sm w-20">
 					<span>名（≥ 候选数 = 精确全排序）</span>
+				</label>
+				<label class="flex items-center gap-1 text-sm" title="只按输入顺序相邻试听 n−1 次，确认顺序对不对，不重新排序">
+					<input id="verify-only" type="checkbox" class="toggle toggle-xs">
+					<span>只播重听（顺序校验）</span>
 				</label>
 				<button id="start" class="btn btn-primary btn-sm">开始排名</button>
 			</div>

@@ -167,21 +167,25 @@ const items: MediaItem[] = [
 const statusEl = document.getElementById('status')!
 const mount = document.getElementById('mount')!
 const targetInput = document.getElementById('target') as HTMLInputElement
+const verifyInput = document.getElementById('verify-only') as HTMLInputElement
 
 function launch() {
 	const target = Math.max(1, parseInt(targetInput.value, 10) || 2)
+	const verifyOnly = verifyInput.checked
 	mount.innerHTML = ''
 	const el = document.createElement('media-rank') as MediaRank
 	el.addEventListener('rank-change', (e) => {
-		const d = (e as CustomEvent).detail as { mode: string; round: number; target: number; extractedCount: number; completed: boolean }
-		statusEl.textContent = d.completed ? '排名完成' : d.mode == 'precise'
+		const d = (e as CustomEvent).detail as { mode: string; round: number; target: number; extractedCount: number; completed: boolean; estimateTotal: number }
+		statusEl.textContent = d.completed ? '完成' : d.mode == 'precise'
 			? `精确排序：已比较 ${d.round} 次`
-			: `前 ${d.target} 名提取：已比较 ${d.round} 次，已提取 ${d.extractedCount}/${d.target} 名`
+			: d.mode == 'verify'
+				? `顺序校验：已听 ${d.round} / ${d.estimateTotal} 对`
+				: `前 ${d.target} 名提取：已比较 ${d.round} 次，已提取 ${d.extractedCount}/${d.target} 名`
 	})
 	el.addEventListener('rank-complete', () => {
-		statusEl.textContent = '排名完成（详情见下方排名列表）'
+		statusEl.textContent = '完成（见下方播放列表）'
 	})
-	el.start(items, new DemoSource(), target)
+	el.start(items, new DemoSource(), target, verifyOnly)
 	mount.append(el)
 }
 

@@ -1,24 +1,55 @@
 <!-- <media-rank> 自带模板：由 element.ts 以 ?raw 注入后在 mount 时编译。
 	遵守 cydon 约束：条件显示统一用 c-show；列表已在状态层拍平为 pairCards /
-	rankingRows；模板引用的方法已在 connectedCallback 预绑定到元素，且只依赖
+	playlistRows；模板引用的方法已在 connectedCallback 预绑定到元素，且只依赖
 	入参（组件状态必须由表达式直接读取才能建立依赖追踪）；事件处理器不依赖
-	this。所有表达式空值安全。 -->
+	this。所有表达式空值安全。
+	同源多 c-for（两个循环遍历同一数组）自 cydon 修复后受支持：每个数组名一个
+	共享访问器，写操作广播到所有注册循环（cydon directives/index.ts 的 for_）。 -->
 
-<!-- ============ 进行中：当前轮对局 ============ -->
+<!-- ============ 进行中：待裁决对 ============ -->
 <div c-show="started && !completed && pairCards.length > 0">
 	<div class="flex flex-wrap items-center gap-3 text-sm">
 		<span c-show="mode=='topK'" class="badge badge-warning badge-outline">前 $target 名提取 · 已比较 $round 次</span>
 		<span c-show="mode=='precise'" class="badge badge-warning badge-outline">精确排序 · 已比较 $round 次</span>
+		<span c-show="mode=='verify'" class="badge badge-info badge-outline">顺序校验 · 已听 $round / $estimateTotal 对</span>
 		<span c-show="mode=='topK'">已提取 $extractedCount / $target 名 · 剩余候选 $candidatesLeft</span>
 		<span c-show="mode=='precise'">共 $totalCount 项 · 预计约 $estimateTotal 次比较</span>
+		<span c-show="mode=='verify'">共 $totalCount 首 · 顺序校验不改变原顺序</span>
 	</div>
 	<div class="alert alert-info py-2 text-sm mt-2">
-		<span>判断这一对哪项更好，点击即裁决并自动进入下一对。</span>
+		<span c-show="mode=='verify'">这一首比上一首更好听吗？点「更好」表示当前这首更优，点「更差」表示上一首更优。</span>
+		<span c-show="mode!='verify'">判断这一对哪项更好，点击即裁决并自动进入下一对。</span>
 	</div>
-	<!-- 固定两列：pairCards 按对局拍平（a、b 相邻），同一对局的两张卡恒在同一行。
-		对局连播直接顺序播放两张卡各自的行内播放器（autoplayTick 驱动，
-		A 播完经 ended 接续 B）；data-role 供连播定位卡片。 -->
-	<div class="grid gap-4 sm:grid-cols-2 mt-3" data-role="pair-list">
+
+	<!-- 音频：播放列表布局（一次只能听一个，单列连续）。行内播放器即连播载体：
+	data-role 供连播定位行，A 播完自动接续 B -->
+	<ol c-show="audioLayout" data-role="pair-list" class="mt-3 space-y-1">
+		<template c-for="pc, i; pairCards">
+			<li class="flex items-center gap-3 p-2 rounded-lg bg-base-200">
+				<span c-show="mode=='verify' || pc.carried" class="badge badge-ghost badge-sm shrink-0" title="这首歌在上一轮已展示，不重播">上一首</span>
+				<span c-show="mode!='verify' && !pc.carried" class="badge badge-ghost badge-sm shrink-0">${i + 1}</span>
+				<audio class="h-9 grow min-w-0" controls preload="metadata" .src="rawSrc(pc.id)"></audio>
+				<div class="flex flex-col gap-0.5 min-w-0 w-48 shrink-0">
+					<!-- 未裁决项可编辑显示名（回车/失焦提交；id 不变，但直链可跟随显示名）。
+						显示用 .value 属性绑定（写 value property）：value="$pc.name" 是
+						setAttribute，input 被用户敲过之后 attribute 更新不再反映到显示，
+						行序重排后会显示别的行的旧输入（实测两行同名的由来）。 -->
+					<input class="input input-ghost input-xs w-full font-medium px-1 -ml-1 focus:bg-base-100"
+						.value="pc.name" title="改显示名（直链来源可跟随此名，回车提交）"
+						@change="renameItem(pc, $e.target.value)">
+					<input class="input input-ghost input-xs w-full text-xs opacity-60 px-1 -ml-1 focus:bg-base-100"
+						.value="pc.meta" placeholder="例：03:21 · 28.5 MB" title="改元数据（回车提交）"
+						@change="renameMeta(pc, $e.target.value)">
+				</div>
+				<button c-show="pc.carried" class="btn btn-ghost btn-xs shrink-0" title="编辑这首（已裁决）" @click="openEditor(pc)">编辑</button>
+				<button class="btn btn-primary btn-xs shrink-0" @click="onCardClick(pc)">✓ 更好</button>
+				<button class="btn btn-ghost btn-xs shrink-0" @click="openViewer(pc)">详情</button>
+			</li>
+		</template>
+	</ol>
+
+	<!-- 图片/视频：两列卡片（同屏并排对比） -->
+	<div c-show="!audioLayout" class="grid gap-4 sm:grid-cols-2 mt-3">
 		<template c-for="pc; pairCards">
 			<div class="card bg-base-200 p-2 transition-all" data-pair="$pc.pairIndex">
 				<div class="flex items-center justify-between mb-1">
@@ -28,14 +59,13 @@
 				<figure c-show="pc.kind=='image'">
 					<img class="w-full object-contain max-h-64 bg-base-300 cursor-pointer select-none" src="${cardSrc(pc)}" alt="$pc.name" loading="lazy" @click="onCardClick(pc)" @mouseover="previewOn(pc)" @mouseout="previewOff">
 				</figure>
-				<figure c-show="pc.kind=='audio'" class="py-6 px-2">
-					<audio class="w-full" controls preload="metadata" .src="rawSrc(pc.id)"></audio>
-				</figure>
 				<figure c-show="pc.kind=='video'">
 					<video class="w-full max-h-64 bg-base-300" controls preload="metadata" .src="rawSrc(pc.id)" poster="${posterSrc(pc.id)}"></video>
 				</figure>
 				<div class="flex items-center gap-2 p-1 text-xs">
-					<span class="truncate font-mono grow" title="$pc.name">$pc.name</span>
+					<input class="input input-ghost input-xs w-full font-mono grow px-1 -ml-1 focus:bg-base-100"
+						.value="pc.name" title="改显示名（回车提交）"
+						@change="renameItem(pc, $e.target.value)">
 					<span c-show="!!pc.meta" class="badge badge-ghost badge-sm shrink-0">$pc.meta</span>
 				</div>
 				<div class="px-1 pb-1">
@@ -51,27 +81,83 @@
 	<span>没有候选，无法排名</span>
 </div>
 
-<!-- ============ 完成：完整排名 ============ -->
+<!-- ============ 完成：排名结果 ============ -->
 <div c-show="completed">
-	<div class="alert alert-success py-2 text-sm">
+	<div class="alert alert-success py-2 text-sm" c-show="mode!='verify' || inversionCount==0">
 		<span c-show="mode=='precise'">排名完成：共 $totalCount 项，精确全排序</span>
-			<span c-show="mode=='topK'">排名完成：共 $totalCount 项，前 $target 名经认证</span>
+		<span c-show="mode=='topK'">排名完成：共 $totalCount 项，前 $target 名经认证</span>
+		<span c-show="mode=='verify' && inversionCount==0">校验完成：$totalCount 首顺序全部正确</span>
+		<span c-show="mode=='verify' && inversionCount>0">校验完成：发现 $inversionCount 处顺序有误（下方标出）</span>
 	</div>
-	<ol class="mt-3 space-y-1">
-		<template c-for="r; rankingRows">
-			<li class="flex items-center gap-2 p-2 rounded-lg bg-base-200">
-				<span class="badge ${r.badge} shrink-0">${r.rank}</span>
-				<img c-show="r.kind=='image'" class="w-10 h-10 object-cover rounded shrink-0" src="${thumbSrc(r.id)}" alt="$r.name" loading="lazy">
-				<span class="text-sm font-mono truncate grow" title="$r.name">$r.name</span>
-				<span c-show="!!r.meta" class="badge badge-ghost badge-sm shrink-0">$r.meta</span>
-				<button class="btn btn-ghost btn-xs shrink-0" @click="openViewer(r)">原始文件</button>
-			</li>
-		</template>
-	</ol>
+	<!-- 顺序校验的逆序处 -->
+	<div c-show="mode=='verify' && inversionCount>0" class="mt-3">
+		<div class="text-xs opacity-70 mb-1">顺序有误的位置（这些曲目其实比前一首更好听）：</div>
+		<ul class="space-y-1">
+			<template c-for="r; inversionRows">
+				<li class="flex items-center gap-2 p-2 rounded-lg bg-warning/10 text-sm">
+<span class="badge badge-warning badge-sm shrink-0">!</span>
+						<span class="truncate grow" title="$r.name">$r.name</span>
+						<button class="btn btn-ghost btn-xs shrink-0" @click="openEditor(r)">编辑</button>
+						<button class="btn btn-ghost btn-xs shrink-0" @click="openViewer(r)">详情</button>
+				</li>
+			</template>
+		</ul>
+	</div>
+
+	<!-- 音频结果：可连续播放的播放列表 -->
+	<div c-show="audioLayout">
+		<div class="flex items-center gap-2 mt-3">
+			<button class="btn btn-primary btn-sm" @click="playPlaylist">
+				<span c-show="!playlistPlaying">▶ 从头连续播放</span>
+				<span c-show="playlistPlaying">■ 停止</span>
+			</button>
+			<span class="text-xs opacity-60">点任意一首可从该首开始连播</span>
+		</div>
+		<ol class="mt-2 space-y-1">
+			<template c-for="r; playlistRows">
+				<li class="flex items-center gap-3 p-2 rounded-lg bg-base-200 cursor-pointer" @click="playPlaylistFrom(r)">
+					<span class="badge badge-ghost shrink-0">${r.rankText}</span>
+					<span c-show="playlistIndex == r.rank - 1" class="text-primary shrink-0">♪</span>
+					<span class="text-sm truncate grow" title="$r.name">$r.name</span>
+<span c-show="!!r.meta" class="text-xs opacity-60 shrink-0">$r.meta</span>
+						<button class="btn btn-ghost btn-xs shrink-0" @click="openEditor(r)">编辑</button>
+						<button class="btn btn-ghost btn-xs shrink-0" @click="openViewer(r)">详情</button>
+				</li>
+			</template>
+		</ol>
+	</div>
+
+	<!-- 图片/视频结果：缩略图排名列表 -->
+	<div c-show="!audioLayout">
+		<ol class="mt-3 space-y-1">
+			<template c-for="r; playlistRows">
+				<li class="flex items-center gap-2 p-2 rounded-lg bg-base-200">
+					<span class="badge badge-ghost shrink-0">${r.rankText}</span>
+					<img class="w-10 h-10 object-cover rounded shrink-0" src="${thumbSrc(r.id)}" alt="$r.name" loading="lazy">
+					<span class="text-sm font-mono truncate grow" title="$r.name">$r.name</span>
+<span c-show="!!r.meta" class="badge badge-ghost badge-sm shrink-0">$r.meta</span>
+						<button class="btn btn-ghost btn-xs shrink-0" @click="openEditor(r)">编辑</button>
+						<button class="btn btn-ghost btn-xs shrink-0" @click="openViewer(r)">原始文件</button>
+				</li>
+			</template>
+		</ol>
+	</div>
+
 	<div class="flex gap-2 mt-4">
 		<button class="btn btn-outline btn-sm" @click="restart">重新排名</button>
 	</div>
 </div>
+
+<!-- ============ 播放列表整列连播播放器（结果视图，静态模板区） ============ -->
+<div c-show="playlistPlaying" class="sticky bottom-0 z-30 bg-base-200/95 backdrop-blur border-t border-base-300 px-3 py-2 flex items-center gap-2 text-sm">
+	<span class="text-primary shrink-0">♪</span>
+	<span class="truncate grow">连续播放 ${playlistIndex + 1} / $totalCount</span>
+	<audio ref="playlistPlayer" class="w-72 shrink-0" controls></audio>
+	<button class="btn btn-ghost btn-xs shrink-0" @click="stopPlaylist">停止</button>
+</div>
+
+<!-- 对局连播直接顺序播放两行各自的播放器（autoplayTick 驱动，
+	A 播完经 ended 接续 B；衔接行不重播）。播放状态由行内原生控件呈现。 -->
 
 <!-- ============ 悬停大图预览（非阻塞，位于原始文件查看层之下） ============ -->
 <div c-show="!!previewUrl" class="fixed inset-0 z-40 flex items-center justify-center p-8 pointer-events-none">
@@ -88,5 +174,35 @@
 		<img c-show="viewerKind=='image'" class="max-w-full max-h-full object-contain" src="${viewerId ? rawSrc(viewerId) : ''}" alt="$viewerName">
 		<audio c-show="viewerKind=='audio'" class="w-full max-w-xl" controls .src="viewerId ? rawSrc(viewerId) : ''"></audio>
 		<video c-show="viewerKind=='video'" class="max-w-full max-h-full" controls .src="viewerId ? rawSrc(viewerId) : ''" poster="${viewerId ? posterSrc(viewerId) : ''}"></video>
+	</div>
+</div>
+
+<!-- ============ 编辑面板（已裁决项与普通项共用） ============ -->
+<div c-show="!!editId" class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+	<div class="bg-base-100 rounded-lg shadow-xl p-4 w-full max-w-md">
+		<div class="flex items-center justify-between mb-3">
+			<span class="font-medium text-sm">编辑曲目</span>
+			<button class="btn btn-xs btn-ghost" @click="closeEditor">✕</button>
+		</div>
+		<label class="block text-xs opacity-70 mb-1">标识（id）：换标识即换一首，将丢弃原裁决并重做</label>
+		<input class="input input-sm w-full font-mono mb-1" c-model="editNewId"
+			title="标识须与现有候选都不重复">
+		<div c-show="mode=='topK'" class="text-xs opacity-60 mb-3">前 k 名模式的签表由标识派生，改标识会使全部裁决失效并从头开始。</div>
+		<div c-show="mode!='topK'" class="mb-3"></div>
+		<label class="block text-xs opacity-70 mb-1">名称</label>
+		<input class="input input-sm w-full mb-3" c-model="editName"
+			title="仅影响显示，不影响标识">
+		<label class="block text-xs opacity-70 mb-1">元数据（可选）</label>
+		<input class="input input-sm w-full mb-2" c-model="editMeta"
+			placeholder="例：03:21 · 28.5 MB">
+		<label c-show="editDecided && editNewId == editId" class="flex items-center gap-2 text-xs mb-2 cursor-pointer">
+			<input type="checkbox" class="checkbox checkbox-xs" checked="$editDiscard" @change="editToggleDiscard">
+			<span>丢弃原裁决（回退到这首首次参与比较之前，后续比较需重做）</span>
+		</label>
+		<div c-show="!!editError" class="alert alert-warning py-1 px-2 text-xs mb-2">$editError</div>
+		<div class="flex justify-end gap-2">
+			<button class="btn btn-sm btn-ghost" @click="closeEditor">取消</button>
+			<button class="btn btn-sm btn-primary" @click="submitEditor">保存</button>
+		</div>
 	</div>
 </div>
