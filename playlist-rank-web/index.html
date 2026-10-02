@@ -60,6 +60,10 @@
 						<input id="k" type="number" min="1" class="input input-bordered input-sm w-20" placeholder="全部">
 						<span>名（留空 = 全部精确排序）</span>
 					</label>
+					<label class="flex items-center gap-1 text-sm" title="只按歌单顺序相邻试听 n−1 次，确认顺序对不对，不重新排序">
+						<input id="verify" type="checkbox" class="toggle toggle-xs">
+						<span>只播重听</span>
+					</label>
 					<span id="status" class="text-sm opacity-60">填写歌单与解析 API 后开始</span>
 				</div>
 				<!-- 中断恢复：与当前歌单匹配的未完成/已完成进度快照 -->

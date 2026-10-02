@@ -18,8 +18,20 @@ interface SavedSnapshot {
 	snapshot: RankSnapshot
 }
 
+/**
+ * 歌单输入框的原始内容（撤销快照与表单持久化用）。
+ *
+ * 与 PlaylistInput（解析后的 songs）刻意分开：前者要还原用户当时看到的输入框，
+ * 包括歌单名与写了一半的行，这些在解析后已不存在。
+ */
+interface PlaylistEntryInput {
+	name?: string | undefined
+	ordered?: boolean | undefined
+	text?: string | undefined
+}
+
 interface SavedForm {
-	playlists?: Array<{ name?: string; ordered?: boolean; text?: string }>
+	playlists?: PlaylistEntryInput[] | undefined
 	list?: string
 	k?: number
 	tpl?: string
@@ -32,6 +44,7 @@ const playlistsEl = document.getElementById('playlists')!
 const addPlaylistBtn = document.getElementById('add-playlist')!
 const tplInput = document.getElementById('tpl') as HTMLInputElement
 const kInput = document.getElementById('k') as HTMLInputElement
+const verifyInput = document.getElementById('verify') as HTMLInputElement
 const startBtn = document.getElementById('start') as HTMLButtonElement
 const statusEl = document.getElementById('status')!
 const errorEl = document.getElementById('error')!
@@ -48,8 +61,10 @@ const mount = document.getElementById('mount')!
 /**
  * 解析 API 直连源：模板 URL 即直链（GET 返回音频流）。
  *
- * media-rank 只传字符串 id，这里把 id 拆回「歌名 - 歌手」再展开模板，因此
- * `{name}` 得到纯歌名、`{artist}` 得到歌手（输入未给歌手时该占位符整体消失）。
+ * 直链**优先按当前显示名**展开模板：用户在排名中改了显示名，改的往往正是想听的
+ * 那首（歌手写错、歌名写反），此时按旧 id 取链会放错歌——所以 params.name 存在
+ * 就用它，只有缺失时才回退按 id 拆「歌名 - 歌手」。因此 `{name}` 得到纯歌名、
+ * `{artist}` 得到歌手（两者都没有时该占位符整体消失）。
  * zoom（图片缩略图）对音频无意义，忽略；raw 与 zoom 返回同一音频直链。
  */
 class TemplateSource implements MediaSource {
@@ -57,8 +72,10 @@ class TemplateSource implements MediaSource {
 	constructor(tpl: string) {
 		this.tpl = tpl
 	}
-	getUrl(id: string, _params?: MediaSourceParams): string {
-		return expandTemplate(this.tpl, splitSongLine(id) ?? { name: id, artist: '' })
+	getUrl(id: string, params?: MediaSourceParams): string {
+		// 显示名可能只写了歌名（无歌手），splitSongLine 会把整串当歌名
+		const song = params?.name ? splitSongLine(params.name) : null
+		return expandTemplate(this.tpl, song ?? splitSongLine(id) ?? { name: id, artist: '' })
 	}
 }
 
@@ -69,7 +86,7 @@ let activeForbidden = new Set<string>()
 
 // ---------- 多歌单输入条目 ----------
 
-function addPlaylistEntry(prefill?: { name?: string; ordered?: boolean; text?: string }) {
+function addPlaylistEntry(prefill?: PlaylistEntryInput) {
 	const root = document.createElement('div')
 	root.className = 'w-full flex gap-2 items-stretch'
 	root.dataset.role = 'entry'
@@ -91,21 +108,39 @@ function addPlaylistEntry(prefill?: { name?: string; ordered?: boolean; text?: s
 		syncStartBtn()
 		// 歌单被改动后，旧快照可能与新歌单不再匹配
 		syncResumeBar()
+		dropExampleUndo()
 	})
 	;(root.querySelector('[data-role=remove]') as HTMLButtonElement).addEventListener('click', () => {
 		root.remove()
 		updateRemoveStates()
 		syncStartBtn()
 		syncResumeBar()
+		dropExampleUndo()
 	})
 	playlistsEl.append(root)
 	updateRemoveStates()
+	// 新增歌单也是一种改动（「添加歌单」按钮 / 拖入文件 / 撤销重建都会走到这里）
+	dropExampleUndo()
 }
 
 /** 至少保留一个歌单输入框。 */
 function updateRemoveStates() {
 	const removes = [...playlistsEl.querySelectorAll<HTMLButtonElement>('[data-role=remove]')]
 	removes.forEach((b) => (b.disabled = removes.length <= 1))
+}
+
+/**
+ * 读取歌单输入框的**原始**内容（不解析）。
+ *
+ * 撤销快照必须用这个而非 readPlaylists：后者只给解析后的 songs，会丢掉歌单名、
+ * 也丢掉还没写完/写错的行。
+ */
+function readPlaylistInputs(): PlaylistEntryInput[] {
+	return [...playlistsEl.querySelectorAll<HTMLElement>('[data-role=entry]')].map((root) => ({
+		name: (root.querySelector('[data-role=name]') as HTMLInputElement).value,
+		ordered: (root.querySelector('[data-role=ordered]') as HTMLInputElement).checked,
+		text: (root.querySelector('[data-role=text]') as HTMLTextAreaElement).value,
+	}))
 }
 
 /** 读取全部歌单条目（文本逐单解析去重）。 */
@@ -166,20 +201,22 @@ function saveForm() {
 function restoreForm() {
 	try {
 		const saved = JSON.parse(localStorage.getItem(FORM_KEY) ?? 'null') as SavedForm | null
-		if (!saved) return
-		if (Array.isArray(saved.playlists) && saved.playlists.length) {
-			for (const p of saved.playlists)
-				addPlaylistEntry(p)
-		} else if (typeof saved.list == 'string') {
-			// 旧版单歌单表单迁移
-			addPlaylistEntry({ text: saved.list })
+		// 无存档时也要走完下面的补空与 k/tpl 兜底，故不提前返回
+		if (saved) {
+			if (Array.isArray(saved.playlists) && saved.playlists.length) {
+				for (const p of saved.playlists)
+					addPlaylistEntry(p)
+			} else if (typeof saved.list == 'string') {
+				// 旧版单歌单表单迁移
+				addPlaylistEntry({ text: saved.list })
+			}
+			if (typeof saved.k == 'number' && saved.k >= 1)
+				kInput.value = String(saved.k)
+			if (typeof saved.tpl == 'string') tplInput.value = saved.tpl
+			if (typeof saved.llmBase == 'string') llmBase.value = saved.llmBase
+			if (typeof saved.llmKey == 'string') llmKey.value = saved.llmKey
+			if (typeof saved.llmModel == 'string') llmModel.value = saved.llmModel
 		}
-		if (typeof saved.k == 'number' && saved.k >= 1)
-			kInput.value = String(saved.k)
-		if (typeof saved.tpl == 'string') tplInput.value = saved.tpl
-		if (typeof saved.llmBase == 'string') llmBase.value = saved.llmBase
-		if (typeof saved.llmKey == 'string') llmKey.value = saved.llmKey
-		if (typeof saved.llmModel == 'string') llmModel.value = saved.llmModel
 	} catch {
 		// 忽略
 	}
@@ -198,9 +235,9 @@ function currentSongIds(): string[] {
 function loadSnapshot(): SavedSnapshot | null {
 	try {
 		const s = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) ?? 'null') as SavedSnapshot | null
-		const snapOk = !!s?.snapshot && (s.snapshot.kind == 'precise'
-			? Array.isArray(s.snapshot.items)
-			: s.snapshot.kind == 'topK' && Array.isArray(s.snapshot.items))
+		const snapOk = !!s?.snapshot
+			&& (s.snapshot.kind == 'precise' || s.snapshot.kind == 'topK' || s.snapshot.kind == 'verify')
+			&& Array.isArray(s.snapshot.items)
 		if (s && Array.isArray(s.songs) && s.songs.length && snapOk && typeof s.k == 'number' && s.k >= 1)
 			return s
 	} catch {
@@ -258,7 +295,9 @@ function resume() {
 	syncResumeBar()
 	setStatus(saved.snapshot.kind == 'precise'
 		? `已恢复：精确排序，已比较 ${saved.snapshot.answers.length} 次`
-		: `已恢复：前 ${saved.snapshot.target} 名提取，已比较 ${saved.snapshot.answers.length} 次`)
+		: saved.snapshot.kind == 'verify'
+			? `已恢复：只播重听，已听 ${saved.snapshot.answers.length} 对`
+			: `已恢复：前 ${saved.snapshot.target} 名提取，已比较 ${saved.snapshot.answers.length} 次`)
 }
 
 // ---------- 排名 ----------
@@ -329,11 +368,13 @@ function mountRanker(init: (el: MediaRank) => void, plan_k: number) {
 			showWarn('该裁决与有序歌单中的顺序相反，最终排名将保持有序歌单的相对顺序')
 	})
 	el.addEventListener('rank-change', (e) => {
-		const d = (e as CustomEvent<{ mode: RankMode; round: number; target: number; extractedCount: number; candidatesLeft: number; pendingCount: number; completed: boolean; snapshot: RankSnapshot }>).detail
+		const d = (e as CustomEvent<{ mode: RankMode; round: number; target: number; extractedCount: number; candidatesLeft: number; pendingCount: number; completed: boolean; estimateTotal: number; snapshot: RankSnapshot }>).detail
 		saveSnapshot(currentSongIds(), plan_k, d.snapshot)
 		setStatus(d.completed ? '排名完成' : d.mode == 'precise'
 			? `精确排序进行中：已比较 ${d.round} 次，待裁决 ${d.pendingCount} 对`
-			: `前 ${d.target} 名提取进行中：已比较 ${d.round} 次，已提取 ${d.extractedCount}/${d.target} 名`)
+			: d.mode == 'verify'
+				? `只播重听：已听 ${d.round} / ${d.estimateTotal} 对`
+				: `前 ${d.target} 名提取进行中：已比较 ${d.round} 次，已提取 ${d.extractedCount}/${d.target} 名`)
 	})
 	el.addEventListener('rank-complete', (e) => {
 		lastResult = (e as CustomEvent<{ result: RankResult }>).detail.result
@@ -355,17 +396,20 @@ function launch() {
 	resumeEl.style.display = 'none'
 	lastTpl = plan.tpl
 	activeForbidden = forbiddenSet(plan.constraints)
+	const verifyOnly = verifyInput.checked
 	mountRanker((el) => {
 		el.constraints = plan.constraints
 		// id 与展示名都用「歌名 - 歌手」整行：排序/去重/导出逻辑与无歌手时完全一致
-		el.start(plan.songs.map((s) => ({ id: songId(s), kind: 'audio' as const, name: songId(s) })), new TemplateSource(plan.tpl), plan.k)
+		el.start(plan.songs.map((s) => ({ id: songId(s), kind: 'audio' as const, name: songId(s) })), new TemplateSource(plan.tpl), plan.k, verifyOnly)
 	}, plan.k)
 
 	const n = plan.songs.length
-	setStatus(plan.k >= n
-		? `精确模式：共 ${n} 首，预计约 ${estimatePrecise(n)} 次比较`
-		: n < 2 ? '不足 2 首，直接定名次'
-		: `共 ${n} 首，找出前 ${plan.k} 名`)
+	setStatus(verifyOnly
+		? `只播重听：按当前顺序相邻试听 ${Math.max(0, n - 1)} 对，不重新排序`
+		: plan.k >= n
+			? `精确模式：共 ${n} 首，预计约 ${estimatePrecise(n)} 次比较`
+			: n < 2 ? '不足 2 首，直接定名次'
+			: `共 ${n} 首，找出前 ${plan.k} 名`)
 }
 
 /** Ford-Johnson 排序的比较次数估计（Knuth 渐近式）。 */
@@ -516,6 +560,38 @@ const EXAMPLE_PLAYLISTS = [
 	{ name: '待比较', ordered: false, text: '夜曲\n青花瓷 - 周杰伦\n告白气球 - 周杰伦\n孤勇者' },
 ]
 
+/** 载入示例前的歌单输入（撤销用）；null = 当前不是示例状态。 */
+let exampleUndo: PlaylistEntryInput[] | null = null
+
+/** 按钮在「载入示例」/「撤销」间切换。 */
+function syncExampleBtn() {
+	const btn = document.getElementById('example')!
+	btn.textContent = exampleUndo ? '撤销载入示例' : '载入示例'
+	btn.title = exampleUndo ? '恢复到载入示例前的输入' : '填入示例歌单（可撤销）'
+	btn.classList.toggle('btn-active', !!exampleUndo)
+}
+
+/**
+ * 丢弃撤销点：歌单被改动后，「撤销」会把用户的新输入整份丢掉。
+ *
+ * 宁可按钮回到「载入示例」也不保留撤销点——撤销应只回退「载入示例」这一个
+ * 动作，而不是替用户决定丢弃后续编辑。
+ */
+function dropExampleUndo() {
+	if (!exampleUndo) return
+	exampleUndo = null
+	syncExampleBtn()
+}
+
+/** 用快照重建歌单输入（撤销用）。 */
+function restoreExampleInput(saved: readonly PlaylistEntryInput[]) {
+	playlistsEl.innerHTML = ''
+	for (const p of saved)
+		addPlaylistEntry({ name: p.name, ordered: p.ordered, text: p.text })
+	if (!playlistsEl.children.length)
+		addPlaylistEntry()
+}
+
 tplInput.addEventListener('input', syncStartBtn)
 kInput.addEventListener('input', syncResumeBar)
 startBtn.addEventListener('click', launch)
@@ -535,9 +611,18 @@ document.addEventListener('paste', (e) => {
 	}
 })
 document.getElementById('example')!.addEventListener('click', () => {
-	playlistsEl.innerHTML = ''
-	for (const p of EXAMPLE_PLAYLISTS)
-		addPlaylistEntry(p)
+	// 在「载入示例」与「撤销」间切换：只有当当前内容正是示例时，撤销才有意义
+	if (exampleUndo) {
+		restoreExampleInput(exampleUndo)
+	} else {
+		const saved = readPlaylistInputs()
+		playlistsEl.innerHTML = ''
+		for (const p of EXAMPLE_PLAYLISTS)
+			addPlaylistEntry(p)
+		// 必须在建完之后再存撤销点：addPlaylistEntry 会丢弃旧的撤销点
+		exampleUndo = saved
+	}
+	syncExampleBtn()
 	syncStartBtn()
 	syncResumeBar()
 })
@@ -552,3 +637,4 @@ document.getElementById('discard-btn')!.addEventListener('click', () => {
 restoreForm()
 setupDragImport()
 syncResumeBar()
+syncExampleBtn()
